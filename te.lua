@@ -14,7 +14,7 @@ while line do
   end
   sentences[#sentences + 1] = sentence
   
-  for _, word in pairs(string.split(line, " ")) do
+  for _, word in pairs(sentence) do
     if words_count[word] then
       words_count[word] = words_count[word] + 1
     else
@@ -34,7 +34,6 @@ function compare(a, b)
 end
 
 table.sort(words, compare)
-print(words)
 --for key, val in pairs(words_count) do  -- Table iteration.
 --  print(key, val)
 --end
@@ -43,6 +42,8 @@ vocabulary = {}
 for i = 1, 300 do 
   vocabulary[#vocabulary + 1] = words[i]
 end
+
+print (vocabulary)
 
 function in_array(x, l)
   for i = 1, #l do
