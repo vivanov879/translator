@@ -1,22 +1,20 @@
 require 'mobdebug'.start()
 
-
-
-
-
-fd = io.lines('en')
+fd = io.lines('ru')
 words_count = {}
 words = {}
 sentences = {}
 line = fd()
 while line do
   sentence = {}
-  for word in string.gmatch(line, "%a+") do
-    sentence[#sentence + 1] = word
+  for _, word in pairs(string.split(line, " ")) do
+    if word ~= '.' and word ~= ',' then
+      sentence[#sentence + 1] = word
+    end
   end
   sentences[#sentences + 1] = sentence
   
-  for word in string.gmatch(line, "%a+") do
+  for _, word in pairs(string.split(line, " ")) do
     if words_count[word] then
       words_count[word] = words_count[word] + 1
     else
@@ -71,7 +69,9 @@ for i = 1, #sentences do
     empty_sentence_indexes[#empty_sentence_indexes + 1] = i
     --print(sentence)
   end
-  filtered_sentences[#filtered_sentences + 1] = filtered_sentence
+  if #filtered_sentence < 22 + 12 and #filtered_sentence > 22 - 12  then
+    filtered_sentences[#filtered_sentences + 1] = filtered_sentence
+  end
 end
 
 print(#empty_sentence_indexes, #sentences)
@@ -81,7 +81,13 @@ for i = 1, #sentences do
   sentence_lengths[i] = #(sentences[i])
 end
 
-print(torch.mean(sentence_lengths), torch.std(sentence_lengths))
+filtered_sentence_lengths = torch.zeros(#filtered_sentences)
+for i = 1, #filtered_sentences do
+  filtered_sentence_lengths[i] = #(filtered_sentences[i])
+end
+
+print(torch.mean(sentence_lengths), torch.std(sentence_lengths), torch.max(sentence_lengths))
+print(torch.mean(filtered_sentence_lengths), torch.std(filtered_sentence_lengths), torch.min(filtered_sentence_lengths), torch.max(filtered_sentence_lengths))
 
 
 a = 1

@@ -1,8 +1,8 @@
 
 
 
-l = {'a','b'}
-x = 'c'
-if l[1] then 
-  print('lol')
-end
+str = 'что такое'
+
+l = string.split(str, ' ')
+print(l)
+
