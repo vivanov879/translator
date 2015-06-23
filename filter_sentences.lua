@@ -92,7 +92,7 @@ filtered_sentences_indexes = {}
 for i = 1, #filtered_sentences do
   sentence = {}
   for _, word in pairs(filtered_sentences) do  
-    sentence[#sentence + 1] = inv_vocabluary[word]
+    sentence[#sentence + 1] = inv_vocabulary[word]
   end
   filtered_sentences_indexes[#filtered_sentences_indexes + 1] = sentence
 end
