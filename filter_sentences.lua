@@ -39,11 +39,13 @@ table.sort(words, compare)
 --end
 
 vocabulary = {}
+inv_vocabluary = {}
 for i = 1, 3000 do 
   vocabulary[#vocabulary + 1] = words[i]
+  inv_vocabulary[words[i]] = i
 end
 
-print (vocabulary)
+--print (vocabulary)
 
 function in_array(x, l)
   for i = 1, #l do
@@ -85,6 +87,18 @@ filtered_sentence_lengths = torch.zeros(#filtered_sentences)
 for i = 1, #filtered_sentences do
   filtered_sentence_lengths[i] = #(filtered_sentences[i])
 end
+
+filtered_sentences_indexes = {}
+for i = 1, #filtered_sentences do
+  sentence = {}
+  for _, word in pairs(filtered_sentences) do  
+    sentence[#sentence + 1] = inv_vocabluary[word]
+  end
+  filtered_sentences_indexes[#filtered_sentences_indexes + 1] = sentence
+end
+
+print(filtered_sentences_indexes)
+
 
 print(torch.mean(sentence_lengths), torch.std(sentence_lengths), torch.max(sentence_lengths))
 print(torch.mean(filtered_sentence_lengths), torch.std(filtered_sentence_lengths), torch.min(filtered_sentence_lengths), torch.max(filtered_sentence_lengths))
