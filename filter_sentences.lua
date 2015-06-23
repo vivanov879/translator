@@ -39,7 +39,7 @@ table.sort(words, compare)
 --end
 
 vocabulary = {}
-for i = 1, 300 do 
+for i = 1, 3000 do 
   vocabulary[#vocabulary + 1] = words[i]
 end
 
@@ -63,19 +63,18 @@ for i = 1, #sentences do
     word = sentence[k]
     if in_array(word, vocabulary) then
       filtered_sentence[#filtered_sentence + 1] = word
+    else
+      filtered_sentence[#filtered_sentence + 1] = 'UNK'
     end
   end
+  filtered_sentence[#filtered_sentence + 1] = 'EOS'
   --print(#filtered_sentence, #sentence)
-  if #filtered_sentence == 0 then
-    empty_sentence_indexes[#empty_sentence_indexes + 1] = i
-    --print(sentence)
-  end
   if #filtered_sentence < 22 + 12 and #filtered_sentence > 22 - 12  then
     filtered_sentences[#filtered_sentences + 1] = filtered_sentence
   end
 end
 
-print(#empty_sentence_indexes, #sentences)
+--print(filtered_sentences)
 
 sentence_lengths = torch.zeros(#sentences)
 for i = 1, #sentences do
