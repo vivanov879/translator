@@ -39,7 +39,7 @@ table.sort(words, compare)
 --end
 
 vocabulary = {}
-inv_vocabluary = {}
+inv_vocabulary = {}
 for i = 1, 3000 do 
   vocabulary[#vocabulary + 1] = words[i]
   inv_vocabulary[words[i]] = i
