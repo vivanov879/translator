@@ -44,6 +44,10 @@ for i = 1, 3000 do
   vocabulary[#vocabulary + 1] = words[i]
   inv_vocabulary[words[i]] = i
 end
+vocabulary[#vocabulary + 1] = 'UNK'
+inv_vocabulary['UNK'] = #inv_vocabulary + 1
+vocabulary[#vocabulary + 1] = 'EOS'
+inv_vocabulary['EOS'] = #inv_vocabulary + 1
 
 --print (vocabulary)
 
