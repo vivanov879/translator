@@ -1,4 +1,5 @@
 require 'mobdebug'.start()
+require 'table_utils'
 
 fd = io.lines('ru')
 words_count = {}

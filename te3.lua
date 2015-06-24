@@ -6,19 +6,12 @@ require 'optim'
 require 'image'
 local model_utils=require 'model_utils'
 local mnist = require 'mnist'
+require 'table_utils'
 
 nngraph.setDebug(true)
 
-require 'table_utils'
+l = {1,2,3}
+h = table.reverse(l)
+print(h)
 
-l = {}
-l[1] = {}
-l[1][2] = '2'
-l[1][3] = 3
-l[2] = {}
-l[4] = '4'
-table.save(l , 't')
-x = table.load('t')
-print(x)
 
-a = 1

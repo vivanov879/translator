@@ -104,18 +104,17 @@ do
 		end
 		return tables[1]
 	end
+  
+  function table.reverse(t)
+    local r = {}
+    for i=1,#t do
+      r[#t+1-i] = t[i]
+    end
+    return r
+  end
+  
 -- close do
 end
 
-l = {}
-l[1] = {}
-l[1][2] = '2'
-l[1][3] = 3
-l[2] = {}
-l[4] = '4'
-table.save(l , 't')
-x = table.load('t')
-print(x)
 
-a = 1
 
