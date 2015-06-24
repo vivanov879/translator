@@ -12,6 +12,12 @@ nngraph.setDebug(true)
 rnn_size = 100
 vocab_size = 3000 + 2
 
+--train data 
+sentences_ru = table.load('filtered_sentences_ru_rev')
+sentences_en = table.load('filtered_sentences_en')
+assert(#sentences_en == #sentences_ru)
+n_data = #sentences_en
+
 --encoder
 input = nn.Identity()()
 prev_h = nn.Identity()()
@@ -69,29 +75,96 @@ prediction = nn.LogSoftMax()(prediction)
 decoder = nn.gModule({x, prev_c, prev_h}, {next_c, next_h, prediction})
 
 
---train data 
-sentences_ru = table.load('filtered_sentences_ru_rev')
-sentences_en = table.load('filtered_sentences_en')
+--embedding layer
+embed = Embedding(vocab_size, rnn_size)
 
+criterion = nn.ClassNLLCriterion()
 
 -- put the above things into one flattened parameters tensor
-local params, grad_params = model_utils.combine_all_parameters(encoder, decoder)
+local params, grad_params = model_utils.combine_all_parameters(embed, encoder, decoder)
 params:uniform(-0.08, 0.08)
 
+seq_len = 30
+
 -- make a bunch of clones, AFTER flattening, as that reallocates memory
-clones = {} -- TODO: local
-for name,proto in pairs(protos) do
-    print('cloning '..name)
-    clones[name] = model_utils.clone_many_times(proto, opt.seq_length, not proto.parameters)
+embed_clones = model_utils.clone_many_times(embed, seq_len)
+encoder_clones = model_utils.clone_many_times(encoder, seq_len)
+decoder_clones = model_utils.clone_many_times(decoder, seq_len)
+criterion_clones = model_utils.clone_many_times(criterion, seq_len)
+
+
+-- do fwd/bwd and return loss, grad_params
+function feval(x_arg)
+    if x_arg ~= params then
+        params:copy(x_arg)
+    end
+    grad_params:zero()
+    
+    ------------------- forward pass -------------------
+    lstm_c_enc = {[0]=torch.zeros(n_data, rnn_size)}
+    lstm_h_enc = {[0]=torch.zeros(n_data, rnn_size)}
+    lstm_c_dec = {[0]=torch.zeros(n_data, rnn_size)}
+    lstm_h_dec = {[0]=torch.zeros(n_data, rnn_size)}
+    x_error = {[0]=torch.rand(n_data, 28, 28)}
+    x_prediction = {}
+    loss_z = {}
+    loss_x = {}
+    canvas = {[0]=torch.rand(n_data, 28, 28)}
+    x = {}
+    patch = {}
+    
+    
+    local loss = 0
+
+    for t = 1, seq_length do
+      e[t] = torch.randn(n_data, n_z)
+      x[t] = features_input
+      z[t], loss_z[t], lstm_c_enc[t], lstm_h_enc[t], patch[t] = unpack(encoder_clones[t]:forward({x[t], x_error[t-1], lstm_c_enc[t-1], lstm_h_enc[t-1], e[t], lstm_h_dec[t-1], ascending}))
+      x_prediction[t], x_error[t], lstm_c_dec[t], lstm_h_dec[t], canvas[t], loss_x[t] = unpack(decoder_clones[t]:forward({x[t], z[t], lstm_c_dec[t-1], lstm_h_dec[t-1], canvas[t-1], ascending}))
+      --print(patch[1]:gt(0.5))
+      
+      loss = loss + torch.mean(loss_z[t]) + torch.mean(loss_x[t])
+    end
+    loss = loss / seq_length
+
+    ------------------ backward pass -------------------
+    -- complete reverse order of the above
+    dlstm_c_enc = {[seq_length] = torch.zeros(n_data, rnn_size)}
+    dlstm_h_enc = {[seq_length] = torch.zeros(n_data, rnn_size)}
+    dlstm_c_dec = {[seq_length] = torch.zeros(n_data, rnn_size)}
+    dlstm_h_dec = {[seq_length] = torch.zeros(n_data, rnn_size)}
+    dlstm_h_dec1 = {[seq_length] = torch.zeros(n_data, rnn_size)}
+    dlstm_h_dec2 = {[seq_length] = torch.zeros(n_data, rnn_size)}
+
+    dx_error = {[seq_length] = torch.zeros(n_data, 28, 28)}
+    dx_prediction = {}
+    dloss_z = {}
+    dloss_x = {}
+    dcanvas = {[seq_length] = torch.zeros(n_data, 28, 28)}
+    dz = {}
+    dx1 = {}
+    dx2 = {}
+    de = {}
+    dpatch = {}
+    
+    for t = seq_length,1,-1 do
+      dloss_x[t] = torch.ones(n_data, 1)
+      dloss_z[t] = torch.ones(n_data, 1)
+      dx_prediction[t] = torch.zeros(n_data, 28, 28)
+      dpatch[t] = torch.zeros(n_data, N, N)
+      dx1[t], dz[t], dlstm_c_dec[t-1], dlstm_h_dec1[t-1], dcanvas[t-1], dascending1 = unpack(decoder_clones[t]:backward({x[t], z[t], lstm_c_dec[t-1], lstm_h_dec[t-1], canvas[t-1]}, {dx_prediction[t], dx_error[t], dlstm_c_dec[t], dlstm_h_dec[t], dcanvas[t], dloss_x[t]}))
+      dx2[t], dx_error[t-1], dlstm_c_enc[t-1], dlstm_h_enc[t-1], de[t], dlstm_h_dec2[t-1], dascending2 = unpack(encoder_clones[t]:backward({x[t], x_error[t-1], lstm_c_enc[t-1], lstm_h_enc[t-1], e[t], lstm_h_dec[t-1], ascending}, {dz[t], dloss_z[t], dlstm_c_enc[t], dlstm_h_enc[t], dpatch[t]}))
+      dlstm_h_dec[t-1] = dlstm_h_dec1[t-1] + dlstm_h_dec2[t-1]
+    end
+
+    -- clip gradient element-wise
+    grad_params:clamp(-5, 5)
+
+    return loss, grad_params
 end
 
--- LSTM initial state (zero initially, but final state gets sent to initial state when we do BPTT)
-local initstate_c = torch.zeros(opt.batch_size, opt.rnn_size)
-local initstate_h = initstate_c:clone()
 
--- LSTM final state's backward message (dloss/dfinalstate) is 0, since it doesn't influence predictions
-local dfinalstate_c = initstate_c:clone()
-local dfinalstate_h = initstate_c:clone()
+
 
 -- do fwd/bwd and return loss, grad_params
 function feval(x)
