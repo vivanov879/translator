@@ -1,7 +1,7 @@
 require 'mobdebug'.start()
 require 'table_utils'
 
-fd = io.lines('ru')
+fd = io.lines('en')
 words_count = {}
 words = {}
 sentences = {}
@@ -77,9 +77,8 @@ for i = 1, #sentences do
   filtered_sentence = table.reverse(filtered_sentence)
   filtered_sentence[#filtered_sentence + 1] = 'EOS'
   --print(#filtered_sentence, #sentence)
-  if #filtered_sentence < 22 + 12 and #filtered_sentence > 22 - 12  then
-    filtered_sentences[#filtered_sentences + 1] = filtered_sentence
-  end
+  filtered_sentences[#filtered_sentences + 1] = filtered_sentence
+  
 end
 
 --print(filtered_sentences)
@@ -109,9 +108,10 @@ end
 print(torch.mean(sentence_lengths), torch.std(sentence_lengths), torch.max(sentence_lengths))
 print(torch.mean(filtered_sentence_lengths), torch.std(filtered_sentence_lengths), torch.min(filtered_sentence_lengths), torch.max(filtered_sentence_lengths))
 
+print(#filtered_sentences)
+
 table.save(filtered_sentences, 'filtered_sentences')
 table.save(filtered_sentences_indexes, 'filtered_sentences_indexes')
-table.save()
 
 
 

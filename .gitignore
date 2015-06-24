@@ -12,3 +12,10 @@ en
 *.en
 
 t
+
+*.svg
+
+*.dot
+
+filtered_sentences_indexes_ru
+filtered_sentences_ru
