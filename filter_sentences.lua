@@ -74,6 +74,7 @@ for i = 1, #sentences do
       filtered_sentence[#filtered_sentence + 1] = 'UNK'
     end
   end
+  filtered_sentence = table.reverse(filtered_sentence)
   filtered_sentence[#filtered_sentence + 1] = 'EOS'
   --print(#filtered_sentence, #sentence)
   if #filtered_sentence < 22 + 12 and #filtered_sentence > 22 - 12  then
@@ -108,7 +109,9 @@ print(filtered_sentences_indexes)
 print(torch.mean(sentence_lengths), torch.std(sentence_lengths), torch.max(sentence_lengths))
 print(torch.mean(filtered_sentence_lengths), torch.std(filtered_sentence_lengths), torch.min(filtered_sentence_lengths), torch.max(filtered_sentence_lengths))
 
-
+table.save(filtered_sentences, 'filtered_sentences')
+table.save(filtered_sentences_indexes, 'filtered_sentences_indexes')
+table.save()
 
 
 
