@@ -103,7 +103,7 @@ for i = 1, #filtered_sentences do
   filtered_sentences_indexes[#filtered_sentences_indexes + 1] = sentence
 end
 
-print(filtered_sentences_indexes)
+--print(filtered_sentences_indexes)
 
 
 print(torch.mean(sentence_lengths), torch.std(sentence_lengths), torch.max(sentence_lengths))
