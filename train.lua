@@ -93,6 +93,9 @@ decoder_clones = model_utils.clone_many_times(decoder, seq_len)
 criterion_clones = model_utils.clone_many_times(criterion, seq_len)
 
 
+x_raw_enc = sentences_ru
+iteration_counter = 1
+
 -- do fwd/bwd and return loss, grad_params
 function feval(x_arg)
     if x_arg ~= params then
@@ -101,29 +104,17 @@ function feval(x_arg)
     grad_params:zero()
     
     ------------------- forward pass -------------------
-    lstm_c_enc = {[0]=torch.zeros(n_data, rnn_size)}
-    lstm_h_enc = {[0]=torch.zeros(n_data, rnn_size)}
-    lstm_c_dec = {[0]=torch.zeros(n_data, rnn_size)}
-    lstm_h_dec = {[0]=torch.zeros(n_data, rnn_size)}
-    x_error = {[0]=torch.rand(n_data, 28, 28)}
+    lstm_c_enc = {[0]=torch.zeros(1, rnn_size)}
+    lstm_h_enc = {[0]=torch.zeros(1, rnn_size)}
     x_prediction = {}
-    loss_z = {}
-    loss_x = {}
-    canvas = {[0]=torch.rand(n_data, 28, 28)}
-    x = {}
-    patch = {}
     
     
     local loss = 0
 
-    for t = 1, seq_length do
-      e[t] = torch.randn(n_data, n_z)
-      x[t] = features_input
-      z[t], loss_z[t], lstm_c_enc[t], lstm_h_enc[t], patch[t] = unpack(encoder_clones[t]:forward({x[t], x_error[t-1], lstm_c_enc[t-1], lstm_h_enc[t-1], e[t], lstm_h_dec[t-1], ascending}))
-      x_prediction[t], x_error[t], lstm_c_dec[t], lstm_h_dec[t], canvas[t], loss_x[t] = unpack(decoder_clones[t]:forward({x[t], z[t], lstm_c_dec[t-1], lstm_h_dec[t-1], canvas[t-1], ascending}))
-      --print(patch[1]:gt(0.5))
+    for t = 1, #(x_raw_enc[iteration_counter]) do
+      x[t] = x_raw_enc[iteration_counter][t]
+      lstm_c_enc[t+1], lstm_h_enc[t+1] = unpack(encoder_clones[t]:forward({x[t], lstm_c_enc[t], lstm_h_enc[t]}))
       
-      loss = loss + torch.mean(loss_z[t]) + torch.mean(loss_x[t])
     end
     loss = loss / seq_length
 
@@ -159,6 +150,10 @@ function feval(x_arg)
 
     -- clip gradient element-wise
     grad_params:clamp(-5, 5)
+    iteration_counter = iteration_counter + 1
+    if iteration_counter > #x_raw_enc then 
+      iteration_counter = 1
+    end
 
     return loss, grad_params
 end
