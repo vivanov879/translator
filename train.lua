@@ -94,6 +94,7 @@ criterion_clones = model_utils.clone_many_times(criterion, seq_len)
 
 
 x_raw_enc = sentences_ru
+x_raw_dec = sentences_en
 iteration_counter = 1
 
 -- do fwd/bwd and return loss, grad_params
@@ -110,11 +111,20 @@ function feval(x_arg)
     
     
     local loss = 0
-
-    for t = 1, #(x_raw_enc[iteration_counter]) do
-      x[t] = x_raw_enc[iteration_counter][t]
-      lstm_c_enc[t+1], lstm_h_enc[t+1] = unpack(encoder_clones[t]:forward({x[t], lstm_c_enc[t], lstm_h_enc[t]}))
+    
+    x_enc = x_raw_enc[iteration_counter]
+    for t = 1, #x_enc - 1 do
+      lstm_c_enc[t+1], lstm_h_enc[t+1] = unpack(encoder_clones[t]:forward({x_enc[t], lstm_c_enc[t], lstm_h_enc[t]}))
       
+    end
+    
+    x_dec = x_raw_dec[iteration_counter]     
+    x_dec[0] = x_enc[#x_enc]
+    for t = 0, #x_dec - 1 do 
+      lstm_c_dec[t+1], lstm_h_dec[t+1], x_dec_prediction[t] = unpack(decoder_clones[t]:forward({x_dec[t], lstm_c_enc[t], lstm_h_enc[t]}))
+      loss_x = criterion_clones[t]:forward(x_dec_prediction[t], x_dec[t+1])
+      loss = loss + loss_x
+            
     end
     loss = loss / seq_length
 
