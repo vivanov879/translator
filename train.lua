@@ -13,8 +13,8 @@ rnn_size = 100
 vocab_size = 3000 + 2
 
 --train data 
-sentences_ru = table.load('filtered_sentences_ru_rev')
-sentences_en = table.load('filtered_sentences_en')
+sentences_ru = table.load('filtered_sentences_indexes_ru_rev')
+sentences_en = table.load('filtered_sentences_indexes_en')
 assert(#sentences_en == #sentences_ru)
 n_data = #sentences_en
 
@@ -158,6 +158,15 @@ function feval(x_arg)
 end
 
 
+for i = 1, 1000 do
+  local _, loss = optim.adagrad(feval, params, optim_state)
+
+  if i % 10 == 0 then
+      print(string.format("iteration %4d, loss = %6.6f", i, loss[1]))
+      --print(params)
+      
+  end
+end
 
 
 
