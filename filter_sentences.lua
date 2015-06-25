@@ -94,10 +94,12 @@ for i = 1, #filtered_sentences do
 end
 
 filtered_sentences_indexes = {}
-for i = 1, #filtered_sentences do
+for _, filtered_sentence in pairs(filtered_sentences) do
   sentence = {}
-  for _, word in pairs(filtered_sentences) do  
+  for _, word in pairs(filtered_sentence) do  
     sentence[#sentence + 1] = inv_vocabulary[word]
+    print(word)
+    print(inv_vocabulary[word])
   end
   filtered_sentences_indexes[#filtered_sentences_indexes + 1] = sentence
 end
