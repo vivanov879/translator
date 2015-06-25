@@ -84,7 +84,7 @@ criterion = nn.ClassNLLCriterion()
 local params, grad_params = model_utils.combine_all_parameters(embed, encoder, decoder)
 params:uniform(-0.08, 0.08)
 
-seq_len = 30
+seq_length = 30
 
 -- make a bunch of clones, AFTER flattening, as that reallocates memory
 embed_clones = model_utils.clone_many_times(embed, seq_len)
@@ -107,22 +107,23 @@ function feval(x_arg)
     ------------------- forward pass -------------------
     lstm_c_enc = {[0]=torch.zeros(1, rnn_size)}
     lstm_h_enc = {[0]=torch.zeros(1, rnn_size)}
-    x_prediction = {}
-    
-    
+        
     local loss = 0
     
     x_enc = x_raw_enc[iteration_counter]
     for t = 1, #x_enc - 1 do
-      lstm_c_enc[t+1], lstm_h_enc[t+1] = unpack(encoder_clones[t]:forward({x_enc[t], lstm_c_enc[t], lstm_h_enc[t]}))
-      
+      lstm_c_enc[t], lstm_h_enc[t] = unpack(encoder_clones[t]:forward({x_enc[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}))
     end
+    
+    lstm_c_dec = {[0]=torch.zeros(1, rnn_size)}
+    lstm_h_dec = {[0]=lstm_h_enc[#x_enc-1]}
+    x_dec_prediction = {}
     
     x_dec = x_raw_dec[iteration_counter]     
     x_dec[0] = x_enc[#x_enc]
-    for t = 0, #x_dec - 1 do 
-      lstm_c_dec[t+1], lstm_h_dec[t+1], x_dec_prediction[t] = unpack(decoder_clones[t]:forward({x_dec[t], lstm_c_enc[t], lstm_h_enc[t]}))
-      loss_x = criterion_clones[t]:forward(x_dec_prediction[t], x_dec[t+1])
+    for t = 1, #(x_raw_dec[iteration_counter]) - 1 do 
+      lstm_c_dec[t], lstm_h_dec[t], x_dec_prediction[t] = unpack(decoder_clones[t]:forward({x_dec[t-1], lstm_c_dec[t-1], lstm_h_dec[t-1]}))
+      loss_x = criterion_clones[t]:forward(x_dec_prediction[t], x_dec[t])
       loss = loss + loss_x
             
     end
@@ -130,34 +131,22 @@ function feval(x_arg)
 
     ------------------ backward pass -------------------
     -- complete reverse order of the above
-    dlstm_c_enc = {[seq_length] = torch.zeros(n_data, rnn_size)}
-    dlstm_h_enc = {[seq_length] = torch.zeros(n_data, rnn_size)}
-    dlstm_c_dec = {[seq_length] = torch.zeros(n_data, rnn_size)}
-    dlstm_h_dec = {[seq_length] = torch.zeros(n_data, rnn_size)}
-    dlstm_h_dec1 = {[seq_length] = torch.zeros(n_data, rnn_size)}
-    dlstm_h_dec2 = {[seq_length] = torch.zeros(n_data, rnn_size)}
-
-    dx_error = {[seq_length] = torch.zeros(n_data, 28, 28)}
-    dx_prediction = {}
-    dloss_z = {}
+    dlstm_c_dec = {[#(x_raw_dec[iteration_counter]) - 1] = torch.zeros(1, rnn_size)}
+    dlstm_h_dec = {[#(x_raw_dec[iteration_counter]) - 1] = torch.zeros(1, rnn_size)}
     dloss_x = {}
-    dcanvas = {[seq_length] = torch.zeros(n_data, 28, 28)}
-    dz = {}
-    dx1 = {}
-    dx2 = {}
-    de = {}
-    dpatch = {}
     
-    for t = seq_length,1,-1 do
-      dloss_x[t] = torch.ones(n_data, 1)
-      dloss_z[t] = torch.ones(n_data, 1)
-      dx_prediction[t] = torch.zeros(n_data, 28, 28)
-      dpatch[t] = torch.zeros(n_data, N, N)
-      dx1[t], dz[t], dlstm_c_dec[t-1], dlstm_h_dec1[t-1], dcanvas[t-1], dascending1 = unpack(decoder_clones[t]:backward({x[t], z[t], lstm_c_dec[t-1], lstm_h_dec[t-1], canvas[t-1]}, {dx_prediction[t], dx_error[t], dlstm_c_dec[t], dlstm_h_dec[t], dcanvas[t], dloss_x[t]}))
-      dx2[t], dx_error[t-1], dlstm_c_enc[t-1], dlstm_h_enc[t-1], de[t], dlstm_h_dec2[t-1], dascending2 = unpack(encoder_clones[t]:backward({x[t], x_error[t-1], lstm_c_enc[t-1], lstm_h_enc[t-1], e[t], lstm_h_dec[t-1], ascending}, {dz[t], dloss_z[t], dlstm_c_enc[t], dlstm_h_enc[t], dpatch[t]}))
-      dlstm_h_dec[t-1] = dlstm_h_dec1[t-1] + dlstm_h_dec2[t-1]
+    for t = #(x_raw_dec[iteration_counter]) - 1,1,-1 do
+      dx_dec_prediction[t] = criterion_clones[t]:backward(x_dec_prediction[t], x_dec[t])
+      dx_dec[t-1], dlstm_c_dec[t-1], dlstm_h_dec[t-1] = unpack(decoder_clones[t]:backward({x_dec[t-1], lstm_c_dec[t-1], lstm_h_dec[t-1]}, {lstm_c_dec[t], lstm_h_dec[t], x_dec_prediction[t]}))
     end
-
+    
+    dlstm_c_enc = {[#x_enc - 1] = torch.zeros(1, rnn_size)}
+    dlstm_h_enc = {[#x_enc - 1] = dlstm_h_dec[0]}
+        
+    for t = #x_enc -1, 1, -1 do
+      dx_enc[t], dlstm_c_enc[t-1], dlstm_h_enc[t-1] = unpack(encoder_clones[t]:backward({x_enc[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}, {lstm_c_enc[t], lstm_h_enc[t]}))
+    end
+      
     -- clip gradient element-wise
     grad_params:clamp(-5, 5)
     iteration_counter = iteration_counter + 1
@@ -169,68 +158,6 @@ function feval(x_arg)
 end
 
 
-
-
--- do fwd/bwd and return loss, grad_params
-function feval(x)
-    if x ~= params then
-        params:copy(x)
-    end
-    grad_params:zero()
-    
-    ------------------ get minibatch -------------------
-    local x, y = loader:next_batch()
-
-    ------------------- forward pass -------------------
-    local embeddings = {}            -- input embeddings
-    local lstm_c = {[0]=initstate_c} -- internal cell states of LSTM
-    local lstm_h = {[0]=initstate_h} -- output values of LSTM
-    local predictions = {}           -- softmax outputs
-    local loss = 0
-
-    for t=1,opt.seq_length do
-        embeddings[t] = clones.embed[t]:forward(x[{{}, t}])
-
-        -- we're feeding the *correct* things in here, alternatively
-        -- we could sample from the previous timestep and embed that, but that's
-        -- more commonly done for LSTM encoder-decoder models
-        lstm_c[t], lstm_h[t] = unpack(clones.lstm[t]:forward{embeddings[t], lstm_c[t-1], lstm_h[t-1]})
-
-        predictions[t] = clones.softmax[t]:forward(lstm_h[t])
-        loss = loss + clones.criterion[t]:forward(predictions[t], y[{{}, t}])
-    end
-    loss = loss / opt.seq_length
-
-    ------------------ backward pass -------------------
-    -- complete reverse order of the above
-    local dembeddings = {}                              -- d loss / d input embeddings
-    local dlstm_c = {[opt.seq_length]=dfinalstate_c}    -- internal cell states of LSTM
-    local dlstm_h = {[opt.seq_length]=dfinalstate_h}                                  -- output values of LSTM
-    for t=opt.seq_length,1,-1 do
-        -- backprop through loss, and softmax/linear
-        local doutput_t = clones.criterion[t]:backward(predictions[t], y[{{}, t}])
-        dlstm_h[t] = clones.softmax[t]:backward(lstm_h[t], doutput_t)
-
-        -- backprop through LSTM timestep
-        dembeddings[t], dlstm_c[t-1], dlstm_h[t-1] = unpack(clones.lstm[t]:backward(
-            {embeddings[t], lstm_c[t-1], lstm_h[t-1]},
-            {dlstm_c[t], dlstm_h[t]}
-        ))
-
-        -- backprop through embeddings
-        clones.embed[t]:backward(x[{{}, t}], dembeddings[t])
-    end
-
-    ------------------------ misc ----------------------
-    -- transfer final state to initial state (BPTT)
-    initstate_c:copy(lstm_c[#lstm_c])
-    initstate_h:copy(lstm_h[#lstm_h])
-
-    -- clip gradient element-wise
-    grad_params:clamp(-5, 5)
-
-    return loss, grad_params
-end
 
 
 
