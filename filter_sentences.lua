@@ -22,6 +22,12 @@ while line do
       and word ~= '...' 
       and word ~= '/' 
       and word ~= '\\' 
+      and word ~= '?' 
+      and word ~= '»' 
+      and word ~= '«'
+      and word ~= '—'
+      and word ~= '&#91'
+      and word ~= '&#93'
         then
       sentence[#sentence + 1] = word
     end
