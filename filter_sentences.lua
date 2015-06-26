@@ -5,6 +5,7 @@ fd = io.lines('en')
 words_count = {}
 words = {}
 sentences = {}
+vocab_size = 3000
 line = fd()
 while line do
   sentence = {}
@@ -41,17 +42,17 @@ table.sort(words, compare)
 
 vocabulary = {}
 inv_vocabulary = {}
-for i = 1, 3000 do 
-  vocabulary[#vocabulary + 1] = words[i]
+for i = 1, vocab_size do 
+  vocabulary[i] = words[i]
   inv_vocabulary[words[i]] = i
 end
 vocabulary[#vocabulary + 1] = 'UNK'
-inv_vocabulary['UNK'] = #inv_vocabulary + 1
+inv_vocabulary['UNK'] = #vocabulary
 vocabulary[#vocabulary + 1] = 'EOS'
-inv_vocabulary['EOS'] = #inv_vocabulary + 1
+inv_vocabulary['EOS'] = #vocabulary
 
 --print (vocabulary)
-
+--print(inv_vocabulary)
 function in_array(x, l)
   for i = 1, #l do
     if l[i] == x then
@@ -74,7 +75,7 @@ for i = 1, #sentences do
       filtered_sentence[#filtered_sentence + 1] = 'UNK'
     end
   end
-  filtered_sentence = table.reverse(filtered_sentence)
+  --filtered_sentence = table.reverse(filtered_sentence)
   filtered_sentence[#filtered_sentence + 1] = 'EOS'
   --print(#filtered_sentence, #sentence)
   filtered_sentences[#filtered_sentences + 1] = filtered_sentence
@@ -98,8 +99,6 @@ for _, filtered_sentence in pairs(filtered_sentences) do
   sentence = {}
   for _, word in pairs(filtered_sentence) do  
     sentence[#sentence + 1] = inv_vocabulary[word]
-    print(word)
-    print(inv_vocabulary[word])
   end
   filtered_sentences_indexes[#filtered_sentences_indexes + 1] = sentence
 end
@@ -112,8 +111,8 @@ print(torch.mean(filtered_sentence_lengths), torch.std(filtered_sentence_lengths
 
 print(#filtered_sentences)
 
-table.save(filtered_sentences, 'filtered_sentences')
-table.save(filtered_sentences_indexes, 'filtered_sentences_indexes')
+table.save(filtered_sentences, 'filtered_sentences_en')
+table.save(filtered_sentences_indexes, 'filtered_sentences_indexes_en')
 
 
 
