@@ -27,7 +27,15 @@ while line do
       and word ~= '«'
       and word ~= '—'
       and word ~= '&#91'
-      and word ~= '&#93'
+      and word ~= '&gt;'
+      and word ~= '&apos;s'
+      and word ~= '&apos;t'
+      and word ~= '&apos;re'
+      and word ~= '&apos;ll'
+      and word ~= '&apos;'
+      and word ~= '&apos;'
+      and word ~= '&apos;'
+      and word ~= '&lt;'
         then
       sentence[#sentence + 1] = word
     end
