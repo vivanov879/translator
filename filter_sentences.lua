@@ -1,16 +1,28 @@
 require 'mobdebug'.start()
 require 'table_utils'
 
-fd = io.lines('en')
+fd = io.lines('ru')
 words_count = {}
 words = {}
 sentences = {}
-vocab_size = 3000
+vocab_size = 10000
 line = fd()
 while line do
   sentence = {}
   for _, word in pairs(string.split(line, " ")) do
-    if word ~= '.' and word ~= ',' then
+    if word ~= '.' 
+      and word ~= ',' 
+      and word ~= '&quot;' 
+      and word ~= '(' 
+      and word ~= ')' 
+      and word ~= '-' 
+      and word ~= ";" 
+      and word ~= ":" 
+      and word ~= '..' 
+      and word ~= '...' 
+      and word ~= '/' 
+      and word ~= '\\' 
+        then
       sentence[#sentence + 1] = word
     end
   end
@@ -75,7 +87,7 @@ for i = 1, #sentences do
       filtered_sentence[#filtered_sentence + 1] = 'UNK'
     end
   end
-  --filtered_sentence = table.reverse(filtered_sentence)
+  filtered_sentence = table.reverse(filtered_sentence)
   filtered_sentence[#filtered_sentence + 1] = 'EOS'
   --print(#filtered_sentence, #sentence)
   filtered_sentences[#filtered_sentences + 1] = filtered_sentence
@@ -111,8 +123,8 @@ print(torch.mean(filtered_sentence_lengths), torch.std(filtered_sentence_lengths
 
 print(#filtered_sentences)
 
-table.save(filtered_sentences, 'filtered_sentences_en')
-table.save(filtered_sentences_indexes, 'filtered_sentences_indexes_en')
+table.save(filtered_sentences, 'filtered_sentences_ru_rev')
+table.save(filtered_sentences_indexes, 'filtered_sentences_indexes_ru_rev')
 
 
 
