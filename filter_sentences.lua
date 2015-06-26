@@ -137,11 +137,16 @@ print(torch.mean(filtered_sentence_lengths), torch.std(filtered_sentence_lengths
 
 print(#filtered_sentences)
 
-table.save(filtered_sentences, 'filtered_sentences_ru_rev')
-table.save(filtered_sentences_indexes, 'filtered_sentences_indexes_ru_rev')
 
+fd = io.open('filtered_sentences_ru_rev', 'w')
+for _, sentence in pairs(filtered_sentences) do
+  fd:write(table.concat(sentence, ' ') .. '\n')
+end
 
-
+fd = io.open('filtered_sentences_indexes_ru_rev', 'w')
+for _, sentence in pairs(filtered_sentences_indexes) do
+  fd:write(table.concat(sentence, ' ')  .. '\n')
+end
 
 a = 1
 

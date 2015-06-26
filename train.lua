@@ -10,7 +10,7 @@ require 'table_utils'
 nngraph.setDebug(true)
 
 rnn_size = 100
-vocab_size = 3000 + 2
+vocab_size = 10002
 
 --train data 
 sentences_ru = table.load('filtered_sentences_indexes_ru_rev')
