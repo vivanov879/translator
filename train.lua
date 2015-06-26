@@ -12,9 +12,24 @@ nngraph.setDebug(true)
 rnn_size = 100
 vocab_size = 10002
 
---train data 
-sentences_ru = table.load('filtered_sentences_indexes_ru_rev')
-sentences_en = table.load('filtered_sentences_indexes_en')
+--train data
+function read_words(fn)
+  fd = io.lines(fn)
+  line = fd()
+  sentences = {}
+  while line do
+    sentence = {}
+    for _, word in pairs(string.split(line, " ")) do
+        sentence[#sentence + 1] = word
+    end
+    sentences[#sentences + 1] = sentence
+  end
+  return sentences
+end
+
+sentences_ru = read_words('filtered_sentences_indexes_ru_rev')
+sentences_en = read_words('filtered_sentences_indexes_en')
+
 assert(#sentences_en == #sentences_ru)
 n_data = #sentences_en
 

@@ -1,7 +1,7 @@
 require 'mobdebug'.start()
 require 'table_utils'
 
-fd = io.lines('ru')
+fd = io.lines('en')
 words_count = {}
 words = {}
 sentences = {}
@@ -101,7 +101,7 @@ for i = 1, #sentences do
       filtered_sentence[#filtered_sentence + 1] = 'UNK'
     end
   end
-  filtered_sentence = table.reverse(filtered_sentence)
+  --filtered_sentence = table.reverse(filtered_sentence)
   filtered_sentence[#filtered_sentence + 1] = 'EOS'
   --print(#filtered_sentence, #sentence)
   filtered_sentences[#filtered_sentences + 1] = filtered_sentence
@@ -138,12 +138,12 @@ print(torch.mean(filtered_sentence_lengths), torch.std(filtered_sentence_lengths
 print(#filtered_sentences)
 
 
-fd = io.open('filtered_sentences_ru_rev', 'w')
+fd = io.open('filtered_sentences_en', 'w')
 for _, sentence in pairs(filtered_sentences) do
   fd:write(table.concat(sentence, ' ') .. '\n')
 end
 
-fd = io.open('filtered_sentences_indexes_ru_rev', 'w')
+fd = io.open('filtered_sentences_indexes_en', 'w')
 for _, sentence in pairs(filtered_sentences_indexes) do
   fd:write(table.concat(sentence, ' ')  .. '\n')
 end
