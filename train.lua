@@ -4,6 +4,7 @@ require 'nn'
 require 'nngraph'
 require 'optim'
 require 'image'
+require 'Embedding'
 local model_utils=require 'model_utils'
 local mnist = require 'mnist'
 require 'table_utils'
@@ -15,32 +16,36 @@ vocab_size = 10002
 --train data
 function read_words(fn)
   fd = io.lines(fn)
-  line = fd()
   sentences = {}
+  line = fd()
+
   while line do
     sentence = {}
     for _, word in pairs(string.split(line, " ")) do
         sentence[#sentence + 1] = word
     end
     sentences[#sentences + 1] = sentence
+    line = fd()
   end
   return sentences
 end
 
-sentences_ru = read_words('filtered_sentences_indexes_ru_rev')
-sentences_en = read_words('filtered_sentences_indexes_en')
+sentences_ru = read_words('filtered_sentences_indexes_ru_rev1')
+sentences_en = read_words('filtered_sentences_indexes_en1')
+
+print(sentences_ru)
 
 assert(#sentences_en == #sentences_ru)
 n_data = #sentences_en
 
 --encoder
-input = nn.Identity()()
+x = nn.Identity()()
 prev_h = nn.Identity()()
 prev_c = nn.Identity()()
 
 function new_input_sum()
     -- transforms input
-    i2h            = nn.Linear(n_input, rnn_size)(input)
+    i2h            = nn.Linear(rnn_size, rnn_size)(x)
     -- transforms previous timestep's output
     h2h            = nn.Linear(rnn_size, rnn_size)(prev_h)
     return nn.CAddTable()({i2h, h2h})
@@ -61,13 +66,13 @@ encoder = nn.gModule({x, prev_c, prev_h}, {next_c, next_h})
 
 
 --decoder
-input = nn.Identity()()
+x = nn.Identity()()
 prev_h = nn.Identity()()
 prev_c = nn.Identity()()
 
 function new_input_sum()
     -- transforms input
-    i2h            = nn.Linear(n_input, rnn_size)(input)
+    i2h            = nn.Linear(rnn_size, rnn_size)(x)
     -- transforms previous timestep's output
     h2h            = nn.Linear(rnn_size, rnn_size)(prev_h)
     return nn.CAddTable()({i2h, h2h})
@@ -102,10 +107,10 @@ params:uniform(-0.08, 0.08)
 seq_length = 30
 
 -- make a bunch of clones, AFTER flattening, as that reallocates memory
-embed_clones = model_utils.clone_many_times(embed, seq_len)
-encoder_clones = model_utils.clone_many_times(encoder, seq_len)
-decoder_clones = model_utils.clone_many_times(decoder, seq_len)
-criterion_clones = model_utils.clone_many_times(criterion, seq_len)
+embed_clones = model_utils.clone_many_times(embed, seq_length)
+encoder_clones = model_utils.clone_many_times(encoder, seq_length)
+decoder_clones = model_utils.clone_many_times(decoder, seq_length)
+criterion_clones = model_utils.clone_many_times(criterion, seq_length)
 
 
 x_raw_enc = sentences_ru
@@ -142,7 +147,7 @@ function feval(x_arg)
       loss = loss + loss_x
             
     end
-    loss = loss / seq_length
+    loss = loss / #(x_raw_dec[iteration_counter])
 
     ------------------ backward pass -------------------
     -- complete reverse order of the above
