@@ -30,10 +30,25 @@ function read_words(fn)
   return sentences
 end
 
+function convert2tensors(sentences)
+  l = {}
+  for _, sentence in pairs(sentences) do
+    t = torch.zeros(1, #sentence)
+    for i = 1, #sentence do 
+      t[1][i] = sentence[i]
+    end
+    l[#l + 1] = t
+  end
+  return l  
+end
+
 sentences_ru = read_words('filtered_sentences_indexes_ru_rev1')
 sentences_en = read_words('filtered_sentences_indexes_en1')
 
-print(sentences_ru)
+sentences_ru = convert2tensors(sentences_ru)
+sentences_en = convert2tensors(sentences_en)
+
+--print(sentences_ru)
 
 assert(#sentences_en == #sentences_ru)
 n_data = #sentences_en
@@ -45,9 +60,9 @@ prev_c = nn.Identity()()
 
 function new_input_sum()
     -- transforms input
-    i2h            = nn.Linear(rnn_size, rnn_size)(x)
+    i2h            = nn.Linear(rnn_size, rnn_size)(x):annotate{name='i2h'}
     -- transforms previous timestep's output
-    h2h            = nn.Linear(rnn_size, rnn_size)(prev_h)
+    h2h            = nn.Linear(rnn_size, rnn_size)(prev_h):annotate{name='h2h'}
     return nn.CAddTable()({i2h, h2h})
 end
 
@@ -95,19 +110,23 @@ prediction = nn.LogSoftMax()(prediction)
 decoder = nn.gModule({x, prev_c, prev_h}, {next_c, next_h, prediction})
 
 
---embedding layer
-embed = Embedding(vocab_size, rnn_size)
+--embedding layer fed into encoder
+embed_enc = Embedding(vocab_size, rnn_size)
+
+--embedding layer fed into decoder
+embed_dec = Embedding(vocab_size, rnn_size)
 
 criterion = nn.ClassNLLCriterion()
 
 -- put the above things into one flattened parameters tensor
-local params, grad_params = model_utils.combine_all_parameters(embed, encoder, decoder)
+local params, grad_params = model_utils.combine_all_parameters(embed_enc, embed_dec, encoder, decoder)
 params:uniform(-0.08, 0.08)
 
 seq_length = 30
 
 -- make a bunch of clones, AFTER flattening, as that reallocates memory
-embed_clones = model_utils.clone_many_times(embed, seq_length)
+embed_enc_clones = model_utils.clone_many_times(embed_enc, seq_length)
+embed_dec_clones = model_utils.clone_many_times(embed_dec, seq_length)
 encoder_clones = model_utils.clone_many_times(encoder, seq_length)
 decoder_clones = model_utils.clone_many_times(decoder, seq_length)
 criterion_clones = model_utils.clone_many_times(criterion, seq_length)
@@ -131,8 +150,9 @@ function feval(x_arg)
     local loss = 0
     
     x_enc = x_raw_enc[iteration_counter]
-    for t = 1, #x_enc - 1 do
-      lstm_c_enc[t], lstm_h_enc[t] = unpack(encoder_clones[t]:forward({x_enc[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}))
+    for t = 1, x_enc:size(2) - 1 do
+      x_enc_embedding[t] = embed_enc_clones[t]:forward(x_enc[{{}, {t}}])
+      lstm_c_enc[t], lstm_h_enc[t] = unpack(encoder_clones[t]:forward({x_enc_embedding[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}))
     end
     
     lstm_c_dec = {[0]=torch.zeros(1, rnn_size)}
@@ -140,14 +160,16 @@ function feval(x_arg)
     x_dec_prediction = {}
     
     x_dec = x_raw_dec[iteration_counter]     
-    x_dec[0] = x_enc[#x_enc]
-    for t = 1, #(x_raw_dec[iteration_counter]) - 1 do 
-      lstm_c_dec[t], lstm_h_dec[t], x_dec_prediction[t] = unpack(decoder_clones[t]:forward({x_dec[t-1], lstm_c_dec[t-1], lstm_h_dec[t-1]}))
-      loss_x = criterion_clones[t]:forward(x_dec_prediction[t], x_dec[t])
+    x_dec[0] = x_enc[t]
+    x_dec_embedding[0] = embed_dec_clones[0]:forward(x_dec[{{}, {0}}])
+    for t = 1, x_dec:size(2) - 1 do 
+      x_dec_embedding[t] = embed_dec_clones[t]:forward(x_dec[{{}, {t}}])
+      lstm_c_dec[t], lstm_h_dec[t], x_dec_prediction[t] = unpack(decoder_clones[t]:forward({x_dec_embedding[t-1], lstm_c_dec[t-1], lstm_h_dec[t-1]}))
+      loss_x = criterion_clones[t]:forward(x_dec_prediction[t], x_dec_embedding[t])
       loss = loss + loss_x
             
     end
-    loss = loss / #(x_raw_dec[iteration_counter])
+    loss = loss / x_dec:size(2)
 
     ------------------ backward pass -------------------
     -- complete reverse order of the above
@@ -156,15 +178,17 @@ function feval(x_arg)
     dloss_x = {}
     
     for t = #(x_raw_dec[iteration_counter]) - 1,1,-1 do
-      dx_dec_prediction[t] = criterion_clones[t]:backward(x_dec_prediction[t], x_dec[t])
-      dx_dec[t-1], dlstm_c_dec[t-1], dlstm_h_dec[t-1] = unpack(decoder_clones[t]:backward({x_dec[t-1], lstm_c_dec[t-1], lstm_h_dec[t-1]}, {lstm_c_dec[t], lstm_h_dec[t], x_dec_prediction[t]}))
+      dx_dec_prediction[t] = criterion_clones[t]:backward(x_dec_prediction[t], x_dec_embedding[t])
+      dx_dec_embedding[t-1], dlstm_c_dec[t-1], dlstm_h_dec[t-1] = unpack(decoder_clones[t]:backward({x_dec_embedding[t-1], lstm_c_dec[t-1], lstm_h_dec[t-1]}, {dlstm_c_dec[t], dlstm_h_dec[t], dx_dec_prediction[t]}))
+      dx_dec[{{}, {t}}] = embed_dec_clones[t]:backward(x_dec[{{}, {t}}], dx_dec_embedding[t])
     end
     
     dlstm_c_enc = {[#x_enc - 1] = torch.zeros(1, rnn_size)}
     dlstm_h_enc = {[#x_enc - 1] = dlstm_h_dec[0]}
         
     for t = #x_enc -1, 1, -1 do
-      dx_enc[t], dlstm_c_enc[t-1], dlstm_h_enc[t-1] = unpack(encoder_clones[t]:backward({x_enc[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}, {lstm_c_enc[t], lstm_h_enc[t]}))
+      dx_enc_embedding[t], dlstm_c_enc[t-1], dlstm_h_enc[t-1] = unpack(encoder_clones[t]:backward({x_enc_embedding[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}, {dlstm_c_enc[t], dlstm_h_enc[t]}))
+      dx_enc[{{}, {t}}] = embed_enc_clones[t]:backward(x_enc[{{}, {t}}], dx_enc_embedding[t])
     end
       
     -- clip gradient element-wise

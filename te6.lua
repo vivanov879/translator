@@ -11,14 +11,6 @@ require 'table_utils'
 
 nngraph.setDebug(true)
 
-x = nn.Identity()()
-y = Embedding(4, 10)()
-z = nn.Copy()(y)
 
-z = nn.gModule({x}, {z})
-
-
-l = {'1', 'asdf', '1234'}
-s = table.concat(l, ' ')
-
-print(s)
+x = torch.rand(3, 5)
+print(x[{{}, {2}}])
