@@ -170,14 +170,14 @@ function feval(x_arg)
       print(loss_x)
             
     end
-    loss = loss / x_dec:size(2)
+    loss = loss / (x_dec:size(2) - 1)
 
     ------------------ backward pass -------------------
     -- complete reverse order of the above
     dlstm_c_dec = {[x_dec:size(2) - 1] = torch.zeros(1, rnn_size)}
     dlstm_h_dec = {[x_dec:size(2) - 1] = torch.zeros(1, rnn_size)}
     dx_dec_prediction = {}
-    dx_dec_embedding = {}
+    dx_dec_embedding = {[x_dec:size(2) - 1] = torch.zeros(1, rnn_size)}
     dx_dec = {}
     dloss_x = {}
     
@@ -185,7 +185,7 @@ function feval(x_arg)
       dx_dec_prediction[t] = criterion_clones[t]:forward(x_dec_prediction[t], x_dec[{{}, {t}}]:reshape(1))
       dx_dec_prediction[t] = torch.Tensor(1):fill(dx_dec_prediction[t])
       dx_dec_embedding[t-1], dlstm_c_dec[t-1], dlstm_h_dec[t-1] = unpack(decoder_clones[t]:backward({x_dec_embedding[t-1], lstm_c_dec[t-1], lstm_h_dec[t-1]}, {dlstm_c_dec[t], dlstm_h_dec[t], dx_dec_prediction[t]}))
-      dx_dec[t] = embed_dec_clones[t]:backward(x_dec[{{}, {t}}]:reshape(1), dx_dec_embedding[t-1])
+      dx_dec[t] = embed_dec_clones[t]:backward(x_dec[{{}, {t}}]:reshape(1), dx_dec_embedding[t])
     end
     
     dlstm_c_enc = {[x_enc:size(2) - 1] = torch.zeros(1, rnn_size)}
