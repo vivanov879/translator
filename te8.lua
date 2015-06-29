@@ -1,5 +1,15 @@
+
 require 'mobdebug'.start()
+
+require 'nn'
+require 'nngraph'
+require 'optim'
+require 'image'
+local model_utils=require 'model_utils'
+local mnist = require 'mnist'
 require 'table_utils'
+
+nngraph.setDebug(true)
 
 
 words2omit = {["!"] = 177, ["#"] = 2930, ["$"] = 314, ["%"] = 139, ["&#91;"] = 312, ["&#93;"] = 316, ["&amp;"] = 482, ["&apos;"] = 92, ["&apos;an"] = 9189, ["&apos;d"] = 1069, ["&apos;i"] = 5286, ["&apos;ll"] = 566, ["&apos;m"] = 808, ["&apos;re"] = 358, ["&apos;s"] = 26, ["&apos;t"] = 85, ["&apos;ve"] = 555, ["&gt;"] = 730, ["&lt;"] = 2691, ["&quot;"] = 12, ["("] = 35, [")"] = 33, ["*"] = 339, ["+"] = 795, [","]
@@ -15,7 +25,7 @@ words2omit = {["!"] = 177, ["#"] = 2930, ["$"] = 314, ["%"] = 139, ["&#91;"] = 3
 ["1949"] = 8843, ["1950"] = 6991, ["1950s"] = 8124, ["1952"] = 9774, ["1953"] = 8193, ["1954"] = 9574, ["1955"] = 8319, ["1956"] = 8504, ["1957"] = 8701, ["1958"] = 8024, ["1959"] = 8628, ["1960"] = 7095, ["1960s"] = 7775, ["1964"] = 9215, ["1965"] = 9921, ["1967"] = 7714, ["1968"] = 7883, ["1969"] = 9575, ["1970"] = 6572, ["1970s"] = 5587, ["1971"] = 8164, ["1972"] = 6125, ["1973"] = 5938, ["1974"]
 = 8507, ["1975"] = 7589, ["1976"] = 7760, ["1977"] = 7376, ["1978"] = 6032, ["1979"] = 5246, ["1980"] = 6387, ["1980s"] = 5228, ["1981"] = 8072, ["1982"] = 7650, ["1983"] = 8897, ["1984"] = 6612, ["1985"] = 5899, ["1986"] = 5889, ["1987"] = 7971, ["1988"] = 4274, ["1989"] = 4890, ["1990"] = 3550, ["1990s"] = 3792, ["1991"] = 2971, ["1992"] = 3037, ["1993"] = 3648, ["1994"] = 3106, ["1995"] = 2850,
 ["1996"] = 2459, ["1997"] = 2793, ["1998"] = 2204, ["1999"] = 1714, ["2000"] = 978, ["2001"] = 1475, ["2002"] = 1406, ["2003"] = 698, ["2004"] = 1020, ["2005"] = 761, ["2006"] = 688, ["2007"] = 398, ["2008"] = 411, ["2009"] = 585, ["2010"] = 686, ["2011"] = 1501, ["2012"] = 1643, ["2013"] = 3186, ["2014"] = 8081, ["2015"] = 7465, ["2020"] = 8777, ["3000"] = 7536, ["5000"] = 9966, [":"] = 36, [";"]
-= 90, ["="] = 3533, ["?"] = 65, ["@"] = 4342, ["\\"] = 1674, ["^"] = 9971, _ = 512}
+= 90, ["="] = 3533, ["?"] = 65, ["@"] = 4342, ["\\"] = 1674, ["^"] = 9971, _ = 512, a = 8, ["a."] = 2369, ["a.m."] = 6769}
 function word2omit(word)
   for key, _ in pairs(words2omit) do
     if word == key then 
@@ -26,131 +36,4 @@ function word2omit(word)
 end
 
 
-
-fd = io.lines('en')
-words_count = {}
-words = {}
-sentences = {}
-vocab_size = 10000
-line = fd()
-while line do
-  sentence = {}
-  for _, word in pairs(string.split(line, " ")) do
-    if not word2omit(word) then
-      sentence[#sentence + 1] = word
-    end
-  end
-  sentences[#sentences + 1] = sentence
-  
-  for _, word in pairs(sentence) do
-    if words_count[word] then
-      words_count[word] = words_count[word] + 1
-    else
-      words_count[word] = 1
-      words[#words + 1] = word
-    end
-    --print(word)
-  end
-  line = fd()
-end
-
-
-function compare(a, b)    
-    if words_count[a] > words_count[b] then    
-        return true    
-    end
-end
-
-table.sort(words, compare)
---for key, val in pairs(words_count) do  -- Table iteration.
---  print(key, val)
---end
-
-vocabulary = {}
-inv_vocabulary = {}
-for i = 1, vocab_size do 
-  vocabulary[i] = words[i]
-  inv_vocabulary[words[i]] = i
-end
-vocabulary[#vocabulary + 1] = 'UNK'
-inv_vocabulary['UNK'] = #vocabulary
-vocabulary[#vocabulary + 1] = 'EOS'
-inv_vocabulary['EOS'] = #vocabulary
-
-table.save(vocabulary, 'vocabulary_en')
-table.save(inv_vocabulary, 'vocabulary_en')
-
---print (vocabulary)
---print(inv_vocabulary)
-function in_array(x, l)
-  for i = 1, #l do
-    if l[i] == x then
-      return true
-    end
-  end
-end
-  
-empty_sentence_indexes = {}
-
-filtered_sentences = {}
-for i = 1, #sentences do
-  sentence = sentences[i]
-  filtered_sentence = {}
-  for k = 1, #sentence do
-    word = sentence[k]
-    if in_array(word, vocabulary) then
-      filtered_sentence[#filtered_sentence + 1] = word
-    else
-      filtered_sentence[#filtered_sentence + 1] = 'UNK'
-    end
-  end
-  --filtered_sentence = table.reverse(filtered_sentence)
-  filtered_sentence[#filtered_sentence + 1] = 'EOS'
-  --print(#filtered_sentence, #sentence)
-  filtered_sentences[#filtered_sentences + 1] = filtered_sentence
-  
-end
-
---print(filtered_sentences)
-
-sentence_lengths = torch.zeros(#sentences)
-for i = 1, #sentences do
-  sentence_lengths[i] = #(sentences[i])
-end
-
-filtered_sentence_lengths = torch.zeros(#filtered_sentences)
-for i = 1, #filtered_sentences do
-  filtered_sentence_lengths[i] = #(filtered_sentences[i])
-end
-
-filtered_sentences_indexes = {}
-for _, filtered_sentence in pairs(filtered_sentences) do
-  sentence = {}
-  for _, word in pairs(filtered_sentence) do  
-    sentence[#sentence + 1] = inv_vocabulary[word]
-  end
-  filtered_sentences_indexes[#filtered_sentences_indexes + 1] = sentence
-end
-
---print(filtered_sentences_indexes)
-
-
-print(torch.mean(sentence_lengths), torch.std(sentence_lengths), torch.max(sentence_lengths))
-print(torch.mean(filtered_sentence_lengths), torch.std(filtered_sentence_lengths), torch.min(filtered_sentence_lengths), torch.max(filtered_sentence_lengths))
-
-print(#filtered_sentences)
-
-
-fd = io.open('filtered_sentences_en', 'w')
-for _, sentence in pairs(filtered_sentences) do
-  fd:write(table.concat(sentence, ' ') .. '\n')
-end
-
-fd = io.open('filtered_sentences_indexes_en', 'w')
-for _, sentence in pairs(filtered_sentences_indexes) do
-  fd:write(table.concat(sentence, ' ')  .. '\n')
-end
-
-a = 1
-
-
+word2omit('!')

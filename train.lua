@@ -41,8 +41,8 @@ function convert2tensors(sentences)
   return l  
 end
 
-sentences_ru = read_words('filtered_sentences_indexes_ru_rev1')
-sentences_en = read_words('filtered_sentences_indexes_en1')
+sentences_ru = read_words('filtered_sentences_indexes_ru_rev')
+sentences_en = read_words('filtered_sentences_indexes_en')
 
 sentences_ru = convert2tensors(sentences_ru)
 sentences_en = convert2tensors(sentences_en)
