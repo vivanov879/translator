@@ -52,6 +52,9 @@ sentences_en = convert2tensors(sentences_en)
 assert(#sentences_en == #sentences_ru)
 n_data = #sentences_en
 
+vocabulary_ru = table.load('vocabulary_ru')
+vocabulary_en = table.load('vocabulary_en')
+
 --encoder
 x = nn.Identity()()
 prev_h = nn.Identity()()
@@ -217,8 +220,21 @@ for i = 1, 10000 do
   if i % 10 == 0 then
       print(string.format("iteration %4d, loss = %6.6f", i, loss[1]))
       --print(params)
+      sample_sentence = {}
+      target_sentence = {}
+      for t = 1, x_dec:size(2) - 1 do 
+        _, sampled_index = x_dec_prediction[t]:max(2)
+        --print(sampled_index)
+        sample_sentence[#sample_sentence + 1] = vocabulary_en[sampled_index[1][1]]
+        target_sentence[#target_sentence + 1] = vocabulary_en[x_dec[1][t]]
+    
+      end
+      print(table.concat(sample_sentence, ' '))
+      print(table.concat(target_sentence, ' '))
       
   end
+  
+  
 end
 
 
