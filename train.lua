@@ -9,7 +9,7 @@ local model_utils=require 'model_utils'
 require 'table_utils'
 nngraph.setDebug(true)
 
-rnn_size = 4
+rnn_size = 100
 vocab_size = 10002
 
 --train data
