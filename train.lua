@@ -9,8 +9,7 @@ local model_utils=require 'model_utils'
 require 'table_utils'
 nngraph.setDebug(true)
 
-rnn_size = 100
-vocab_size = 10002
+rnn_size = 2000
 
 --train data
 function read_words(fn)
@@ -54,6 +53,9 @@ n_data = #sentences_en
 
 vocabulary_ru = table.load('vocabulary_ru')
 vocabulary_en = table.load('vocabulary_en')
+vocab_size = #vocabulary_ru
+assert (#vocabulary_en == #vocabulary_ru)
+
 
 --encoder
 x = nn.Identity()()
@@ -214,10 +216,10 @@ end
 optim_state = {learningRate = 1e-2}
 
 
-for i = 1, 10000 do
+for i = 1, 200000 do
   local _, loss = optim.adagrad(feval, params, optim_state)
 
-  if i % 10 == 0 then
+  if i % 30 == 0 then
       print(string.format("iteration %4d, loss = %6.6f", i, loss[1]))
       --print(params)
       sample_sentence = {}
