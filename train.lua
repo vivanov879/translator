@@ -167,7 +167,7 @@ function feval(x_arg)
       lstm_c_dec[t], lstm_h_dec[t], x_dec_prediction[t] = unpack(decoder_clones[t]:forward({x_dec_embedding[t-1], lstm_c_dec[t-1], lstm_h_dec[t-1]}))
       loss_x = criterion_clones[t]:forward(x_dec_prediction[t], x_dec[{{}, {t}}]:reshape(1))
       loss = loss + loss_x
-      print(loss_x)
+      --print(loss_x)
             
     end
     loss = loss / (x_dec:size(2) - 1)
@@ -182,8 +182,7 @@ function feval(x_arg)
     dloss_x = {}
     
     for t = x_dec:size(2) - 1,1,-1 do
-      dx_dec_prediction[t] = criterion_clones[t]:forward(x_dec_prediction[t], x_dec[{{}, {t}}]:reshape(1))
-      dx_dec_prediction[t] = torch.Tensor(1):fill(dx_dec_prediction[t])
+      dx_dec_prediction[t] = criterion_clones[t]:backward(x_dec_prediction[t], x_dec[{{}, {t}}]:reshape(1))
       dx_dec_embedding[t-1], dlstm_c_dec[t-1], dlstm_h_dec[t-1] = unpack(decoder_clones[t]:backward({x_dec_embedding[t-1], lstm_c_dec[t-1], lstm_h_dec[t-1]}, {dlstm_c_dec[t], dlstm_h_dec[t], dx_dec_prediction[t]}))
       dx_dec[t] = embed_dec_clones[t]:backward(x_dec[{{}, {t}}]:reshape(1), dx_dec_embedding[t])
     end
@@ -212,7 +211,7 @@ end
 optim_state = {learningRate = 1e-2}
 
 
-for i = 1, 1000 do
+for i = 1, 10000 do
   local _, loss = optim.adagrad(feval, params, optim_state)
 
   if i % 10 == 0 then
