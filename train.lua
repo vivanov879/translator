@@ -158,7 +158,7 @@ function feval(x_arg)
     lstm_c_dec = {[0]=torch.zeros(1, rnn_size)}
     lstm_h_dec = {[0]=lstm_h_enc[x_enc:size(2)-1]}
     x_dec_prediction = {}
-     x_dec_embedding = {}
+    x_dec_embedding = {}
     
     x_dec = x_raw_dec[iteration_counter]
     x_dec_embedding[0] = embed_dec_clones[1]:forward(torch.Tensor(1):fill(vocab_size))
