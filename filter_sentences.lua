@@ -146,7 +146,7 @@ for _, sentence in pairs(filtered_sentences) do
   fd:write(table.concat(sentence, ' ') .. '\n')
 end
 
-fd = io.open('filtered_sentences_indexes_en', 'w')
+fd = io.open('filtered_sentences_indexes_en', 'w')
 for _, sentence in pairs(filtered_sentences_indexes) do
   fd:write(table.concat(sentence, ' ')  .. '\n')
 end
