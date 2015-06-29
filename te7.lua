@@ -12,6 +12,7 @@ require 'table_utils'
 nngraph.setDebug(true)
 
 
-h = table.load('vocabulary_en')
+h = table.load('inv_vocabulary_ru')
+print(h)
 
 a = 1

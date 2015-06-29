@@ -25,7 +25,11 @@ function word2omit(word)
   end
 end
 
-
+vocabulary_fn = 'vocabulary_en'
+inv_vocabulary_fn = 'inv_vocabulary_en'
+filtered_sentences_fn = 'filtered_sentences_en'
+filtered_sentences_indexes_fn = 'filtered_sentences_indexes_en'
+should_reverse = false
 
 fd = io.lines('en')
 words_count = {}
@@ -77,10 +81,10 @@ inv_vocabulary['UNK'] = #vocabulary
 vocabulary[#vocabulary + 1] = 'EOS'
 inv_vocabulary['EOS'] = #vocabulary
 
-table.save(vocabulary, 'vocabulary_en')
-table.save(inv_vocabulary, 'vocabulary_en')
+table.save(vocabulary, vocabulary_fn)
+table.save(inv_vocabulary, inv_vocabulary_fn)
 
---print (vocabulary)
+print (vocabulary)
 --print(inv_vocabulary)
 function in_array(x, l)
   for i = 1, #l do
@@ -104,7 +108,9 @@ for i = 1, #sentences do
       filtered_sentence[#filtered_sentence + 1] = 'UNK'
     end
   end
-  --filtered_sentence = table.reverse(filtered_sentence)
+  if should_reverse then 
+    filtered_sentence = table.reverse(filtered_sentence)
+  end
   filtered_sentence[#filtered_sentence + 1] = 'EOS'
   --print(#filtered_sentence, #sentence)
   filtered_sentences[#filtered_sentences + 1] = filtered_sentence
@@ -141,12 +147,12 @@ print(torch.mean(filtered_sentence_lengths), torch.std(filtered_sentence_lengths
 print(#filtered_sentences)
 
 
-fd = io.open('filtered_sentences_en', 'w')
+fd = io.open(filtered_sentences_fn, 'w')
 for _, sentence in pairs(filtered_sentences) do
   fd:write(table.concat(sentence, ' ') .. '\n')
 end
 
-fd = io.open('filtered_sentences_indexes_en', 'w')
+fd = io.open(filtered_sentences_indexes_fn, 'w')
 for _, sentence in pairs(filtered_sentences_indexes) do
   fd:write(table.concat(sentence, ' ')  .. '\n')
 end
