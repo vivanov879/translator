@@ -15,14 +15,14 @@ require 'lstm'
 
 x = nn.Identity()()
 y = nn.Identity()()
-z = nn.Square()(x)
-w = nn.Square()(y)
+z = nn.Copy()(x)
+w = nn.Copy()(y)
 m = nn.gModule({x, y}, {z, w})
 
 
 x = nn.Identity()()
 y = nn.Identity()()
-z, w = m({x, y})
+z, w = m({x, y}):split(2)
 r = nn.CAddTable()({z,w})
 n = nn.gModule({x, y}, {z, w, r})
 
@@ -34,5 +34,4 @@ print(y)
 print(z)
 print(w)
 print(r)
-
 
