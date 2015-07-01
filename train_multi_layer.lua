@@ -13,6 +13,8 @@ require 'lstm'
 opt = {}
 opt.rnn_size = 100
 opt.n_layers = 4
+rnn_size = opt.rnn_size
+n_layers = opt.n_layers
 
 --train data
 function read_words(fn)
@@ -43,8 +45,8 @@ function convert2tensors(sentences)
   return l  
 end
 
-sentences_ru = read_words('filtered_sentences_indexes_ru_rev')
-sentences_en = read_words('filtered_sentences_indexes_en')
+sentences_ru = read_words('filtered_sentences_indexes_ru_rev1')
+sentences_en = read_words('filtered_sentences_indexes_en1')
 
 sentences_ru = convert2tensors(sentences_ru)
 sentences_en = convert2tensors(sentences_en)
@@ -65,26 +67,10 @@ x = nn.Identity()()
 prev_h = nn.Identity()()
 prev_c = nn.Identity()()
 
-function new_input_sum()
-    -- transforms input
-    i2h            = nn.Linear(rnn_size, rnn_size)(x):annotate{name='i2h'}
-    -- transforms previous timestep's output
-    h2h            = nn.Linear(rnn_size, rnn_size)(prev_h):annotate{name='h2h'}
-    return nn.CAddTable()({i2h, h2h})
-end
+m = make_lstm_network(opt)
+next_x, next_c, next_h = m({x, prev_c, prev_h}):split(3)
 
-in_gate          = nn.Sigmoid()(new_input_sum())
-forget_gate      = nn.Sigmoid()(new_input_sum())
-out_gate         = nn.Sigmoid()(new_input_sum())
-in_transform     = nn.Tanh()(new_input_sum())
-
-next_c           = nn.CAddTable()({
-    nn.CMulTable()({forget_gate, prev_c}),
-    nn.CMulTable()({in_gate,     in_transform})
-})
-next_h           = nn.CMulTable()({out_gate, nn.Tanh()(next_c)})
-
-encoder = nn.gModule({x, prev_c, prev_h}, {next_c, next_h})
+encoder = nn.gModule({x, prev_c, prev_h}, {next_x, next_c, next_h})
 
 
 --decoder
@@ -92,26 +78,10 @@ x = nn.Identity()()
 prev_h = nn.Identity()()
 prev_c = nn.Identity()()
 
-function new_input_sum()
-    -- transforms input
-    i2h            = nn.Linear(rnn_size, rnn_size)(x)
-    -- transforms previous timestep's output
-    h2h            = nn.Linear(rnn_size, rnn_size)(prev_h)
-    return nn.CAddTable()({i2h, h2h})
-end
+m = make_lstm_network(opt)
+next_x, next_c, next_h = m({x, prev_c, prev_h}):split(3)
 
-in_gate          = nn.Sigmoid()(new_input_sum())
-forget_gate      = nn.Sigmoid()(new_input_sum())
-out_gate         = nn.Sigmoid()(new_input_sum())
-in_transform     = nn.Tanh()(new_input_sum())
-
-next_c           = nn.CAddTable()({
-    nn.CMulTable()({forget_gate, prev_c}),
-    nn.CMulTable()({in_gate,     in_transform})
-})
-next_h           = nn.CMulTable()({out_gate, nn.Tanh()(next_c)})
-
-prediction = nn.Linear(rnn_size, vocab_size)(next_h)
+prediction = nn.Linear(rnn_size, vocab_size)(next_x)
 prediction = nn.LogSoftMax()(prediction)
 
 decoder = nn.gModule({x, prev_c, prev_h}, {next_c, next_h, prediction})
@@ -143,6 +113,18 @@ x_raw_enc = sentences_ru
 x_raw_dec = sentences_en
 iteration_counter = 1
 
+function gen_tensor_table(gen_ones)
+  local h = {}
+  for i = 1, opt.n_layers do 
+    if gen_ones then
+      h[#h + 1] = torch.ones(1, rnn_size)
+    else  
+      h[#h + 1] = torch.zeros(1, rnn_size)
+    end
+  end
+  return h
+end
+
 -- do fwd/bwd and return loss, grad_params
 function feval(x_arg)
     if x_arg ~= params then
@@ -151,8 +133,10 @@ function feval(x_arg)
     grad_params:zero()
     
     ------------------- forward pass -------------------
-    lstm_c_enc = {[0]=torch.zeros(1, rnn_size)}
-    lstm_h_enc = {[0]=torch.zeros(1, rnn_size)}
+    lstm_c_enc = {[0]=gen_tensor_table(false)}
+    lstm_h_enc = {[0]=gen_tensor_table(false)}
+    lstm_x_enc = {[0]=torch.zeros(1, rnn_size)}
+
     x_enc_embedding = {}
         
     local loss = 0
@@ -160,10 +144,10 @@ function feval(x_arg)
     x_enc = x_raw_enc[iteration_counter]
     for t = 1, x_enc:size(2) - 1 do
       x_enc_embedding[t] = embed_enc_clones[t]:forward(x_enc[{{}, {t}}]:reshape(1))
-      lstm_c_enc[t], lstm_h_enc[t] = unpack(encoder_clones[t]:forward({x_enc_embedding[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}))
+      lstm_x_enc[t], lstm_c_enc[t], lstm_h_enc[t] = unpack(encoder_clones[t]:forward({x_enc_embedding[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}))
     end
     
-    lstm_c_dec = {[0]=torch.zeros(1, rnn_size)}
+    lstm_c_dec = {[0]=gen_tensor_table(false)}
     lstm_h_dec = {[0]=lstm_h_enc[x_enc:size(2)-1]}
     x_dec_prediction = {}
     x_dec_embedding = {}
@@ -178,12 +162,12 @@ function feval(x_arg)
       --print(loss_x)
             
     end
-    loss = loss / (x_dec:size(2) - 1)
+    loss = loss / ((x_dec:size(2) - 1) * n_layers)
 
     ------------------ backward pass -------------------
     -- complete reverse order of the above
-    dlstm_c_dec = {[x_dec:size(2) - 1] = torch.zeros(1, rnn_size)}
-    dlstm_h_dec = {[x_dec:size(2) - 1] = torch.zeros(1, rnn_size)}
+    dlstm_c_dec = {[x_dec:size(2) - 1] = gen_tensor_table(false)}
+    dlstm_h_dec = {[x_dec:size(2) - 1] = gen_tensor_table(false)}
     dx_dec_prediction = {}
     dx_dec_embedding = {[x_dec:size(2) - 1] = torch.zeros(1, rnn_size)}
     dx_dec = {}
@@ -195,14 +179,15 @@ function feval(x_arg)
       dx_dec[t] = embed_dec_clones[t]:backward(x_dec[{{}, {t}}]:reshape(1), dx_dec_embedding[t])
     end
     
-    dlstm_c_enc = {[x_enc:size(2) - 1] = torch.zeros(1, rnn_size)}
+    dlstm_c_enc = {[x_enc:size(2) - 1] = gen_tensor_table(false)}
     dlstm_h_enc = {[x_enc:size(2) - 1] = dlstm_h_dec[0]}
+    dlstm_x_enc = {[x_enc:size(2) - 1] = torch.zeros(1, rnn_size)}
     dx_enc_embedding = {}
     dx_enc = {}
 
         
     for t = x_enc:size(2) -1, 1, -1 do
-      dx_enc_embedding[t], dlstm_c_enc[t-1], dlstm_h_enc[t-1] = unpack(encoder_clones[t]:backward({x_enc_embedding[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}, {dlstm_c_enc[t], dlstm_h_enc[t]}))
+      dx_enc_embedding[t], dlstm_c_enc[t-1], dlstm_h_enc[t-1] = unpack(encoder_clones[t]:backward({x_enc_embedding[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}, {dlstm_x_enc[t], dlstm_c_enc[t], dlstm_h_enc[t]}))
       dx_enc[{{}, {t}}] = embed_enc_clones[t]:backward(x_enc[{{}, {t}}]:reshape(1), dx_enc_embedding[t])
     end
       
