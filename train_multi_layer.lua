@@ -11,7 +11,8 @@ nngraph.setDebug(true)
 require 'lstm'
 
 opt = {}
-opt.rnn_size = 2000
+opt.rnn_size = 100
+opt.n_layers = 4
 
 --train data
 function read_words(fn)
