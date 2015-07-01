@@ -57,11 +57,11 @@ function make_lstm_network(opt)
   local next_c_unsplit = {}
   local inputs = {[0] = x}
   for i = 1, n_layers do 
-    local prev_h = prev_h_split[i]
-    local prev_c = prev_c_split[i]
+    local prev_h = prev_h_split[i]:annotate{name='prev_h' .. i}
+    local prev_c = prev_c_split[i]:annotate{name='prev_c' .. i}
     local next_h, next_c = make_lstm_step(opt, inputs[i - 1], prev_h, prev_c)
-    next_h_unsplit[#next_h_unsplit + 1] = next_h
-    next_c_unsplit[#next_c_unsplit + 1] = next_c
+    next_h_unsplit[#next_h_unsplit + 1] = next_h:annotate{name='next_h_unsplit' .. i}
+    next_c_unsplit[#next_c_unsplit + 1] = next_c:annotate{name='next_c_unsplit' .. i}
     inputs[i] = next_h
   end
   local module = nn.gModule({x, prev_c_unsplit, prev_h_unsplit}, {inputs[n_layers], nn.Identity()(next_c_unsplit), nn.Identity()(next_h_unsplit)})
