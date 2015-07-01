@@ -24,7 +24,7 @@ function make_lstm_step(opt, x, prev_h, prev_c)
 end
 
 
-function make_lstm_network(opt)
+function make_lstm_network_old(opt)
   local n_layers = opt.n_layers or 1
   local x = nn.Identity()()
   local prev_s = nn.Identity()()
@@ -46,7 +46,7 @@ function make_lstm_network(opt)
 end
 
 
-function make_lstm_network1(opt)
+function make_lstm_network(opt)
   local n_layers = opt.n_layers or 1
   local x = nn.Identity()()
   local prev_h_unsplit = nn.Identity()()
@@ -64,7 +64,7 @@ function make_lstm_network1(opt)
     next_c_unsplit[#next_c_unsplit + 1] = next_c
     inputs[i] = next_h
   end
-  local module = nn.gModule({x, prev_s}, {inputs[n_layers], nn.Identity()(next_s)})
+  local module = nn.gModule({x, prev_c_unsplit, prev_h_unsplit}, {inputs[n_layers], nn.Identity()(next_c_unsplit), nn.Identity()(next_h_unsplit)})
   --module:getParameters():uniform(-0.08, 0.08)
   --module = cuda(module)
   return module
