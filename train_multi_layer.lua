@@ -3,7 +3,6 @@ require 'mobdebug'.start()
 require 'nn'
 require 'nngraph'
 require 'optim'
-require 'image'
 require 'Embedding'
 local model_utils=require 'model_utils'
 require 'table_utils'
@@ -11,7 +10,7 @@ nngraph.setDebug(true)
 require 'lstm'
 
 opt = {}
-opt.rnn_size = 1000
+opt.rnn_size = 100
 opt.n_layers = 3
 rnn_size = opt.rnn_size
 n_layers = opt.n_layers
