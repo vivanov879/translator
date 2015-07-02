@@ -65,8 +65,6 @@ function make_lstm_network(opt)
     inputs[i] = next_h
   end
   local module = nn.gModule({x, prev_c_unsplit, prev_h_unsplit}, {inputs[n_layers], nn.Identity()(next_c_unsplit), nn.Identity()(next_h_unsplit)})
-  --module:getParameters():uniform(-0.08, 0.08)
-  --module = cuda(module)
   return module
 end
 
