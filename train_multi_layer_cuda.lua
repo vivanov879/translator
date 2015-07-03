@@ -11,7 +11,7 @@ nngraph.setDebug(true)
 require 'lstm'
 
 opt = {}
-opt.rnn_size = 100
+opt.rnn_size = 500
 opt.n_layers = 3
 rnn_size = opt.rnn_size
 n_layers = opt.n_layers
@@ -36,7 +36,7 @@ end
 function convert2tensors(sentences)
   l = {}
   for _, sentence in pairs(sentences) do
-    t = torch.zeros(1, #sentence):cuda()
+    t = torch.zeros(1, #sentence)
     for i = 1, #sentence do 
       t[1][i] = sentence[i]
     end
@@ -45,8 +45,8 @@ function convert2tensors(sentences)
   return l  
 end
 
-sentences_ru = read_words('filtered_sentences_indexes_ru_rev1')
-sentences_en = read_words('filtered_sentences_indexes_en1')
+sentences_ru = read_words('filtered_sentences_indexes_ru_rev')
+sentences_en = read_words('filtered_sentences_indexes_en')
 
 sentences_ru = convert2tensors(sentences_ru)
 sentences_en = convert2tensors(sentences_en)
@@ -143,7 +143,7 @@ function feval(x_arg)
     
     x_enc = x_raw_enc[iteration_counter]
     for t = 1, x_enc:size(2) - 1 do
-      x_enc_embedding[t] = embed_enc_clones[t]:forward(x_enc[{{}, {t}}]:reshape(1))
+      x_enc_embedding[t] = embed_enc_clones[t]:forward(x_enc[{{}, {t}}]:reshape(1):cuda())
       lstm_x_enc[t], lstm_c_enc[t], lstm_h_enc[t] = unpack(encoder_clones[t]:forward({x_enc_embedding[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}))
     end
     
@@ -155,9 +155,9 @@ function feval(x_arg)
     x_dec = x_raw_dec[iteration_counter]
     x_dec_embedding[0] = embed_dec_clones[1]:forward(torch.Tensor(1):fill(vocab_size):cuda())
     for t = 1, x_dec:size(2) - 1 do 
-      x_dec_embedding[t] = embed_dec_clones[t]:forward(x_dec[{{}, {t}}]:reshape(1))
+      x_dec_embedding[t] = embed_dec_clones[t]:forward(x_dec[{{}, {t}}]:reshape(1):cuda())
       lstm_c_dec[t], lstm_h_dec[t], x_dec_prediction[t] = unpack(decoder_clones[t]:forward({x_dec_embedding[t-1], lstm_c_dec[t-1], lstm_h_dec[t-1]}))
-      loss_x = criterion_clones[t]:forward(x_dec_prediction[t], x_dec[{{}, {t}}]:reshape(1))
+      loss_x = criterion_clones[t]:forward(x_dec_prediction[t], x_dec[{{}, {t}}]:reshape(1):cuda())
       loss = loss + loss_x
       --print(loss_x)
             
@@ -174,9 +174,9 @@ function feval(x_arg)
     dloss_x = {}
     
     for t = x_dec:size(2) - 1,1,-1 do
-      dx_dec_prediction[t] = criterion_clones[t]:backward(x_dec_prediction[t], x_dec[{{}, {t}}]:reshape(1))
+      dx_dec_prediction[t] = criterion_clones[t]:backward(x_dec_prediction[t], x_dec[{{}, {t}}]:reshape(1):cuda())
       dx_dec_embedding[t-1], dlstm_c_dec[t-1], dlstm_h_dec[t-1] = unpack(decoder_clones[t]:backward({x_dec_embedding[t-1], lstm_c_dec[t-1], lstm_h_dec[t-1]}, {dlstm_c_dec[t], dlstm_h_dec[t], dx_dec_prediction[t]}))
-      dx_dec[t] = embed_dec_clones[t]:backward(x_dec[{{}, {t}}]:reshape(1), dx_dec_embedding[t])
+      dx_dec[t] = embed_dec_clones[t]:backward(x_dec[{{}, {t}}]:reshape(1):cuda(), dx_dec_embedding[t])
     end
     
     dlstm_c_enc = {[x_enc:size(2) - 1] = gen_tensor_table(false)}
@@ -188,7 +188,7 @@ function feval(x_arg)
         
     for t = x_enc:size(2) -1, 1, -1 do
       dx_enc_embedding[t], dlstm_c_enc[t-1], dlstm_h_enc[t-1] = unpack(encoder_clones[t]:backward({x_enc_embedding[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}, {dlstm_x_enc[t], dlstm_c_enc[t], dlstm_h_enc[t]}))
-      dx_enc[{{}, {t}}] = embed_enc_clones[t]:backward(x_enc[{{}, {t}}]:reshape(1), dx_enc_embedding[t])
+      dx_enc[{{}, {t}}] = embed_enc_clones[t]:backward(x_enc[{{}, {t}}]:reshape(1):cuda(), dx_enc_embedding[t])
     end
       
     -- clip gradient element-wise
@@ -204,7 +204,7 @@ end
 optim_state = {learningRate = 1e-2}
 
 
-for i = 1, 200000 do
+for i = 1, 2000000 do
   local _, loss = optim.adagrad(feval, params, optim_state)
 
   if i % 30 == 0 then
