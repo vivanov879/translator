@@ -125,6 +125,9 @@ function gen_tensor_table(gen_ones)
   return h
 end
 
+lstm_c_enc0 = gen_tensor_table(false)
+lstm_c_dec0 = gen_tensor_table(false)
+
 -- do fwd/bwd and return loss, grad_params
 function feval(x_arg)
     if x_arg ~= params then
@@ -133,7 +136,7 @@ function feval(x_arg)
     grad_params:zero()
     
     ------------------- forward pass -------------------
-    lstm_c_enc = {[0]=gen_tensor_table(false)}
+    lstm_c_enc = {[0]=lstm_c_enc0}
     lstm_h_enc = {[0]=gen_tensor_table(false)}
     lstm_x_enc = {[0]=torch.zeros(1, rnn_size):cuda()}
 
@@ -147,8 +150,9 @@ function feval(x_arg)
       lstm_x_enc[t], lstm_c_enc[t], lstm_h_enc[t] = unpack(encoder_clones[t]:forward({x_enc_embedding[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}))
     end
     
-    lstm_c_dec = {[0]=gen_tensor_table(false)}
+    lstm_c_dec = {[0]=lstm_c_dec0}
     lstm_h_dec = {[0]=lstm_h_enc[x_enc:size(2)-1]}
+    lstm_c_enc0 = lstm_c_enc[x_enc:size(2)-1]
     x_dec_prediction = {}
     x_dec_embedding = {}
     
@@ -163,6 +167,8 @@ function feval(x_arg)
             
     end
     loss = loss / ((x_dec:size(2) - 1) * n_layers)
+
+    lstm_c_dec0 = lstm_c_dec[x_dec:size(2)-1]
 
     ------------------ backward pass -------------------
     -- complete reverse order of the above
