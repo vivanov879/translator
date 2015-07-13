@@ -175,7 +175,7 @@ function feval(x_arg)
     dlstm_c_dec = {[x_dec:size(2) - 1] = gen_tensor_table(false)}
     dlstm_h_dec = {[x_dec:size(2) - 1] = gen_tensor_table(false)}
     dx_dec_prediction = {}
-    dx_dec_embedding = {[x_dec:size(2) - 1] = torch.zeros(1, rnn_size):cuda()}
+    dx_dec_embedding = {[x_dec:size(2) - 1] = torch.ones(1, rnn_size):cuda()}
     dx_dec = {}
     dloss_x = {}
     
