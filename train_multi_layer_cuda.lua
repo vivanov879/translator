@@ -226,13 +226,14 @@ for i = 1, 2000000 do
         target_sentence[#target_sentence + 1] = vocabulary_en[x_dec[1][t]]
      end
      for t = 1, x_enc:size(2) - 1 do 
-        source_sentence[#source_sentence + 1] = vocabulary_en[x_enc[1][t]]
+        source_sentence[#source_sentence + 1] = vocabulary_ru[x_enc[1][t]]
      end
       print(table.concat(source_sentence, ' '))
       print(table.concat(sample_sentence, ' '))
       print(table.concat(target_sentence, ' '))
       
   end
+end
 
 
 
