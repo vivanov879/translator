@@ -225,7 +225,7 @@ for i = 1, 2000000 do
         _, sampled_index = x_dec_prediction[t]:max(2)
         --print(sampled_index)
         sample_sentence[#sample_sentence + 1] = vocabulary_en[sampled_index[1][1]]
-        target_sentence[#target_sentence + 1] = vocabulary_en[x_dec[1][t]]
+        target_sentence[#target_sentence + 1] = vocabulary_en[y_dec[1][t]]
      end
      for t = 1, x_enc:size(2) - 1 do 
         source_sentence[#source_sentence + 1] = vocabulary_ru[x_enc[1][t]]
