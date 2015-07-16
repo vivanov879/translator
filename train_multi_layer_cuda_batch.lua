@@ -142,10 +142,20 @@ function gen_batch()
     end
     l[#l + 1] = t
   end
+  batch_ru = t:clone()
   
-  return t
-    
-
+  sentences = sentences_en
+  t = torch.zeros(batch_size, max_sentence_len)
+  for k = 1, batch_size do
+    sentence = sentences[start_index + k - 1]
+    for i = 1, #sentence do 
+      t[k][i] = sentence[i]
+    end
+    l[#l + 1] = t
+  end
+  batch_en = t:clone()
+  
+  return batch_ru, batch_en
 end
 
 function gen_tensor_table(gen_ones)
