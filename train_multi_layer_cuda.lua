@@ -156,32 +156,34 @@ function feval(x_arg)
     x_dec_prediction = {}
     x_dec_embedding = {}
     
-    x_dec = x_raw_dec[iteration_counter]
-    x_dec_embedding[0] = embed_dec_clones[1]:forward(torch.Tensor(1):fill(vocab_size):cuda())
-    for t = 1, x_dec:size(2) - 1 do 
+    y_dec = x_raw_dec[iteration_counter]
+    x_dec = torch.zeros(y_dec:size())
+    x_dec[{{}, {1}}] = y_dec[{{}, {y_dec:size(2)}}]
+    x_dec[{{}, {2,y_dec:size(2)}}] = y_dec[{{}, {1,y_dec:size(2) - 1}}]
+    for t = 1, x_dec:size(2) do 
       x_dec_embedding[t] = embed_dec_clones[t]:forward(x_dec[{{}, {t}}]:reshape(1):cuda())
-      lstm_c_dec[t], lstm_h_dec[t], x_dec_prediction[t] = unpack(decoder_clones[t]:forward({x_dec_embedding[t-1], lstm_c_dec[t-1], lstm_h_dec[t-1]}))
-      loss_x = criterion_clones[t]:forward(x_dec_prediction[t], x_dec[{{}, {t}}]:reshape(1):cuda())
+      lstm_c_dec[t], lstm_h_dec[t], x_dec_prediction[t] = unpack(decoder_clones[t]:forward({x_dec_embedding[t], lstm_c_dec[t-1], lstm_h_dec[t-1]}))
+      loss_x = criterion_clones[t]:forward(x_dec_prediction[t], y_dec[{{}, {t}}]:reshape(1):cuda())
       loss = loss + loss_x
       --print(loss_x)
             
     end
-    loss = loss / ((x_dec:size(2) - 1) * n_layers)
+    loss = loss / ((x_dec:size(2)) * n_layers)
 
-    lstm_c_dec0 = lstm_c_dec[x_dec:size(2)-1]
+    lstm_c_dec0 = lstm_c_dec[x_dec:size(2)]
 
     ------------------ backward pass -------------------
     -- complete reverse order of the above
-    dlstm_c_dec = {[x_dec:size(2) - 1] = gen_tensor_table(false)}
-    dlstm_h_dec = {[x_dec:size(2) - 1] = gen_tensor_table(false)}
+    dlstm_c_dec = {[x_dec:size(2)] = gen_tensor_table(false)}
+    dlstm_h_dec = {[x_dec:size(2)] = gen_tensor_table(false)}
     dx_dec_prediction = {}
-    dx_dec_embedding = {[x_dec:size(2) - 1] = torch.zeros(1, rnn_size):cuda()}
+    dx_dec_embedding = {[x_dec:size(2)] = torch.zeros(1, rnn_size):cuda()}
     dx_dec = {}
     dloss_x = {}
     
-    for t = x_dec:size(2) - 1,1,-1 do
-      dx_dec_prediction[t] = criterion_clones[t]:backward(x_dec_prediction[t], x_dec[{{}, {t}}]:reshape(1):cuda())
-      dx_dec_embedding[t-1], dlstm_c_dec[t-1], dlstm_h_dec[t-1] = unpack(decoder_clones[t]:backward({x_dec_embedding[t-1], lstm_c_dec[t-1], lstm_h_dec[t-1]}, {dlstm_c_dec[t], dlstm_h_dec[t], dx_dec_prediction[t]}))
+    for t = x_dec:size(2),1,-1 do
+      dx_dec_prediction[t] = criterion_clones[t]:backward(x_dec_prediction[t], y_dec[{{}, {t}}]:reshape(1):cuda())
+      dx_dec_embedding[t], dlstm_c_dec[t-1], dlstm_h_dec[t-1] = unpack(decoder_clones[t]:backward({x_dec_embedding[t], lstm_c_dec[t-1], lstm_h_dec[t-1]}, {dlstm_c_dec[t], dlstm_h_dec[t], dx_dec_prediction[t]}))
       dx_dec[t] = embed_dec_clones[t]:backward(x_dec[{{}, {t}}]:reshape(1):cuda(), dx_dec_embedding[t])
     end
     
@@ -219,7 +221,7 @@ for i = 1, 2000000 do
       sample_sentence = {}
       target_sentence = {}
       source_sentence = {}
-      for t = 1, x_dec:size(2) - 1 do 
+      for t = 1, x_dec:size(2) do 
         _, sampled_index = x_dec_prediction[t]:max(2)
         --print(sampled_index)
         sample_sentence[#sample_sentence + 1] = vocabulary_en[sampled_index[1][1]]
