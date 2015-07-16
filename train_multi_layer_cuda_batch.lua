@@ -187,9 +187,9 @@ function feval(x_arg)
 
     x_enc_embedding = {}
         
-    local loss = 0
-    
-    x_enc = x_raw_enc[data_index]
+    x_enc, y_dec = gen_batch()
+    local loss = torch.zeros(x_dec:size())
+    local loss_mask = torch.gt(x_dec, 0)
     for t = 1, x_enc:size(2) - 1 do
       x_enc_embedding[t] = embed_enc_clones[t]:forward(x_enc[{{}, {t}}]:reshape(1):cuda())
       lstm_x_enc[t], lstm_c_enc[t], lstm_h_enc[t] = unpack(encoder_clones[t]:forward({x_enc_embedding[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}))
@@ -201,7 +201,6 @@ function feval(x_arg)
     x_dec_prediction = {}
     x_dec_embedding = {}
     
-    y_dec = x_raw_dec[data_index]
     x_dec = torch.zeros(y_dec:size())
     x_dec[{{}, {1}}] = y_dec[{{}, {y_dec:size(2)}}]
     x_dec[{{}, {2,y_dec:size(2)}}] = y_dec[{{}, {1,y_dec:size(2) - 1}}]
@@ -209,11 +208,13 @@ function feval(x_arg)
       x_dec_embedding[t] = embed_dec_clones[t]:forward(x_dec[{{}, {t}}]:reshape(1):cuda())
       lstm_c_dec[t], lstm_h_dec[t], x_dec_prediction[t] = unpack(decoder_clones[t]:forward({x_dec_embedding[t], lstm_c_dec[t-1], lstm_h_dec[t-1]}))
       loss_x = criterion_clones[t]:forward(x_dec_prediction[t], y_dec[{{}, {t}}]:reshape(1):cuda())
-      loss = loss + loss_x
+      loss[{{},{t}}] = loss_x
       --print(loss_x)
             
     end
-    loss = loss / ((x_dec:size(2)) * n_layers)
+    loss = loss * loss_mask
+    loss = torch.mean(loss)
+    loss = loss / ((x_dec:size(1)) * (x_dec:size(2)) * n_layers)
 
     lstm_c_dec0 = lstm_c_dec[x_dec:size(2)]
 
