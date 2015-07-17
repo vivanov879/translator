@@ -81,7 +81,7 @@ prev_c = nn.Identity()()
 m = make_lstm_network(opt)
 next_x, next_c, next_h = m({x, prev_c, prev_h}):split(3)
 
-encoder = (nn.gModule({x, prev_c, prev_h}, {next_x, next_c, next_h})):cuda()
+encoder = (nn.gModule({x, prev_c, prev_h}, {next_x, next_c, next_h}))
 
 
 --decoder
@@ -95,22 +95,22 @@ next_x, next_c, next_h = m({x, prev_c, prev_h}):split(3)
 prediction = nn.Linear(rnn_size, vocab_size)(next_x)
 prediction = nn.LogSoftMax()(prediction)
 
-decoder = (nn.gModule({x, prev_c, prev_h}, {next_c, next_h, prediction})):cuda()
+decoder = (nn.gModule({x, prev_c, prev_h}, {next_c, next_h, prediction}))
 
 
 --embedding layer fed into encoder
-embed_enc = (Embedding(vocab_size, rnn_size)):cuda()
+embed_enc = (Embedding(vocab_size, rnn_size))
 
 --embedding layer fed into decoder
-embed_dec = (Embedding(vocab_size, rnn_size)):cuda()
+embed_dec = (Embedding(vocab_size, rnn_size))
 
-criterion = (nn.ClassNLLCriterion()):cuda()
+criterion = (nn.ClassNLLCriterion())
 
 -- put the above things into one flattened parameters tensor
 local params, grad_params = model_utils.combine_all_parameters(embed_enc, embed_dec, encoder, decoder)
 params:uniform(-0.08, 0.08)
 
-seq_length = 30
+seq_length = max_sentence_len
 
 -- make a bunch of clones, AFTER flattening, as that reallocates memory
 embed_enc_clones = model_utils.clone_many_times(embed_enc, seq_length)
@@ -160,9 +160,9 @@ function gen_tensor_table(gen_ones)
   local h = {}
   for i = 1, opt.n_layers do 
     if gen_ones then
-      h[#h + 1] = torch.ones(batch_size, rnn_size):cuda()
+      h[#h + 1] = torch.ones(batch_size, rnn_size)
     else  
-      h[#h + 1] = torch.zeros(batch_size, rnn_size):cuda()
+      h[#h + 1] = torch.zeros(batch_size, rnn_size)
     end
   end
   return h
@@ -181,7 +181,7 @@ function feval(x_arg)
     ------------------- forward pass -------------------
     lstm_c_enc = {[0]=lstm_c_enc0}
     lstm_h_enc = {[0]=gen_tensor_table(false)}
-    lstm_x_enc = {[0]=torch.zeros(batch_size, rnn_size):cuda()}
+    lstm_x_enc = {[0]=torch.zeros(batch_size, rnn_size)}
 
     x_enc_embedding = {}
         
@@ -189,7 +189,8 @@ function feval(x_arg)
     local loss = torch.zeros(y_dec:size())
     local mask_dec = y_dec:gt(0)
     for t = 1, x_enc:size(2) - 1 do
-      x_enc_embedding[t] = embed_enc_clones[t]:forward(x_enc[{{}, {t}}]:cuda())
+      print(t)
+      x_enc_embedding[t] = embed_enc_clones[t]:forward(x_enc[{{}, t}])
       lstm_x_enc[t], lstm_c_enc[t], lstm_h_enc[t] = unpack(encoder_clones[t]:forward({x_enc_embedding[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}))
     end
     
@@ -203,10 +204,10 @@ function feval(x_arg)
     x_dec[{{}, {1}}] = y_dec[{{}, {y_dec:size(2)}}]
     x_dec[{{}, {2,y_dec:size(2)}}] = y_dec[{{}, {1,y_dec:size(2) - 1}}]
     for t = 1, x_dec:size(2) do 
-      x_dec_embedding[t] = embed_dec_clones[t]:forward(x_dec[{{}, {t}}]:cuda())
+      x_dec_embedding[t] = embed_dec_clones[t]:forward(x_dec[{{}, t}])
       lstm_c_dec[t], lstm_h_dec[t], x_dec_prediction[t] = unpack(decoder_clones[t]:forward({x_dec_embedding[t], lstm_c_dec[t-1], lstm_h_dec[t-1]}))
-      x_dec_prediction[t] = x_dec_prediction[t]:cmul(mask_dec[{{}, {t}}])
-      loss_x = criterion_clones[t]:forward(x_dec_prediction[t], y_dec[{{}, {t}}]:cuda())
+      x_dec_prediction[t] = x_dec_prediction[t]:cmul(mask_dec[{{}, t}])
+      loss_x = criterion_clones[t]:forward(x_dec_prediction[t], y_dec[{{}, t}])
       loss = loss + loss_x
       --print(loss_x)
             
@@ -225,22 +226,22 @@ function feval(x_arg)
     dloss_x = {}
     
     for t = x_dec:size(2),1,-1 do
-      dx_dec_prediction[t] = criterion_clones[t]:backward(x_dec_prediction[t], y_dec[{{}, {t}}]:cuda())
-      dx_dec_prediction[t] = dx_dec_prediction[t]:cmul(mask_dec[{{}, {t}}])
+      dx_dec_prediction[t] = criterion_clones[t]:backward(x_dec_prediction[t], y_dec[{{}, t}])
+      dx_dec_prediction[t] = dx_dec_prediction[t]:cmul(mask_dec[{{}, t}])
       dx_dec_embedding[t], dlstm_c_dec[t-1], dlstm_h_dec[t-1] = unpack(decoder_clones[t]:backward({x_dec_embedding[t], lstm_c_dec[t-1], lstm_h_dec[t-1]}, {dlstm_c_dec[t], dlstm_h_dec[t], dx_dec_prediction[t]}))
-      dx_dec[t] = embed_dec_clones[t]:backward(x_dec[{{}, {t}}]:cuda(), dx_dec_embedding[t])
+      dx_dec[t] = embed_dec_clones[t]:backward(x_dec[{{}, t}], dx_dec_embedding[t])
     end
     
     dlstm_c_enc = {[x_enc:size(2) - 1] = gen_tensor_table(false)}
     dlstm_h_enc = {[x_enc:size(2) - 1] = dlstm_h_dec[0]}
-    dlstm_x_enc = {[x_enc:size(2) - 1] = torch.zeros(batch_size, rnn_size):cuda()}
+    dlstm_x_enc = {[x_enc:size(2) - 1] = torch.zeros(batch_size, rnn_size)}
     dx_enc_embedding = {}
     dx_enc = {}
 
         
     for t = x_enc:size(2) -1, 1, -1 do
       dx_enc_embedding[t], dlstm_c_enc[t-1], dlstm_h_enc[t-1] = unpack(encoder_clones[t]:backward({x_enc_embedding[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}, {dlstm_x_enc[t], dlstm_c_enc[t], dlstm_h_enc[t]}))
-      dx_enc[{{}, {t}}] = embed_enc_clones[t]:backward(x_enc[{{}, {t}}]:cuda(), dx_enc_embedding[t])
+      dx_enc[{{}, t}] = embed_enc_clones[t]:backward(x_enc[{{}, t}], dx_enc_embedding[t])
     end
       
     -- clip gradient element-wise
