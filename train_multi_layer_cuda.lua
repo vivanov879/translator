@@ -11,8 +11,8 @@ nngraph.setDebug(true)
 require 'lstm'
 
 opt = {}
-opt.rnn_size = 200
-opt.n_layers = 3
+opt.rnn_size = 3
+opt.n_layers = 2
 rnn_size = opt.rnn_size
 n_layers = opt.n_layers
 

@@ -135,25 +135,51 @@ function gen_batch()
 
   sentences = sentences_ru
   t = torch.zeros(batch_size, max_sentence_len)
+  mask2 = torch.zeros(batch_size, max_sentence_len)
+  mask3 = torch.zeros(batch_size, max_sentence_len, vocab_size)
   for k = 1, batch_size do
     sentence = sentences[start_index + k - 1]
-    for i = 1, #sentence do 
-      t[k][i] = sentence[i]
+    for i = 1, max_sentence_len do 
+      if i <= #sentence then
+        t[k][i] = sentence[i]
+        mask2[k][i] = 1
+        mask3[{k, i, {}}] = torch.ones(vocab_size)
+      else
+        t[k][i] = vocab_size
+        mask2[k][i] = 0
+        mask3[{k, i, {}}] = torch.zeros(vocab_size)
+      end
+      
     end
   end
   batch_ru = t:clone()
+  mask2_ru = mask2:clone()
+  mask3_ru = mask3:clone()
   
   sentences = sentences_en
   t = torch.zeros(batch_size, max_sentence_len)
+  mask2 = torch.zeros(batch_size, max_sentence_len)
+  mask3 = torch.zeros(batch_size, max_sentence_len, vocab_size)
   for k = 1, batch_size do
     sentence = sentences[start_index + k - 1]
-    for i = 1, #sentence do 
-      t[k][i] = sentence[i]
+    for i = 1, max_sentence_len do 
+      if i <= #sentence then
+        t[k][i] = sentence[i]
+        mask2[k][i] = 1
+        mask3[{k, i, {}}] = torch.ones(vocab_size)
+      else
+        t[k][i] = vocab_size
+        mask2[k][i] = 0
+        mask3[{k, i, {}}] = torch.zeros(vocab_size)
+      end
+      
     end
   end
   batch_en = t:clone()
+  mask2_en = mask2:clone()
+  mask3_en = mask3:clone()
   
-  return batch_ru, batch_en
+  return batch_ru, batch_en, mask2_ru, mask2_en, mask3_ru, mask3_en
 end
 
 function gen_tensor_table(gen_ones)
@@ -185,11 +211,9 @@ function feval(x_arg)
 
     x_enc_embedding = {}
         
-    x_enc, y_dec = gen_batch()
-    local loss = torch.zeros(y_dec:size())
-    local mask_dec = y_dec:gt(0)
+    x_enc, y_dec, mask2_enc, mask2_dec, mask3_enc, mask3_dec = gen_batch()
+    local loss = 0
     for t = 1, x_enc:size(2) - 1 do
-      print(t)
       x_enc_embedding[t] = embed_enc_clones[t]:forward(x_enc[{{}, t}])
       lstm_x_enc[t], lstm_c_enc[t], lstm_h_enc[t] = unpack(encoder_clones[t]:forward({x_enc_embedding[t], lstm_c_enc[t-1], lstm_h_enc[t-1]}))
     end
@@ -206,7 +230,7 @@ function feval(x_arg)
     for t = 1, x_dec:size(2) do 
       x_dec_embedding[t] = embed_dec_clones[t]:forward(x_dec[{{}, t}])
       lstm_c_dec[t], lstm_h_dec[t], x_dec_prediction[t] = unpack(decoder_clones[t]:forward({x_dec_embedding[t], lstm_c_dec[t-1], lstm_h_dec[t-1]}))
-      x_dec_prediction[t] = x_dec_prediction[t]:cmul(mask_dec[{{}, t}])
+      x_dec_prediction[t] = x_dec_prediction[t]:cmul(mask3_dec[{{}, t, {}}])
       loss_x = criterion_clones[t]:forward(x_dec_prediction[t], y_dec[{{}, t}])
       loss = loss + loss_x
       --print(loss_x)
@@ -227,7 +251,7 @@ function feval(x_arg)
     
     for t = x_dec:size(2),1,-1 do
       dx_dec_prediction[t] = criterion_clones[t]:backward(x_dec_prediction[t], y_dec[{{}, t}])
-      dx_dec_prediction[t] = dx_dec_prediction[t]:cmul(mask_dec[{{}, t}])
+      dx_dec_prediction[t] = dx_dec_prediction[t]:cmul(mask3_dec[{{}, t, {}}])
       dx_dec_embedding[t], dlstm_c_dec[t-1], dlstm_h_dec[t-1] = unpack(decoder_clones[t]:backward({x_dec_embedding[t], lstm_c_dec[t-1], lstm_h_dec[t-1]}, {dlstm_c_dec[t], dlstm_h_dec[t], dx_dec_prediction[t]}))
       dx_dec[t] = embed_dec_clones[t]:backward(x_dec[{{}, t}], dx_dec_embedding[t])
     end
@@ -257,10 +281,10 @@ end
 optim_state = {learningRate = 1e-2}
 
 
-for i = 1, 2000000 do
+  if i % 30 == 0 then
   local _, loss = optim.adagrad(feval, params, optim_state)
 
-  if i % 30 == 0 then
+  if true then
       print(string.format("iteration %4d, loss = %6.6f", i, loss[1]))
       --print(params)
       sample_sentence = {}
