@@ -11,11 +11,11 @@ nngraph.setDebug(true)
 require 'lstm'
 
 opt = {}
-opt.rnn_size = 3
+opt.rnn_size = 40
 opt.n_layers = 2
 rnn_size = opt.rnn_size
 n_layers = opt.n_layers
-batch_size = 2
+batch_size = 10
 
 --train data
 function read_words(fn)
@@ -145,7 +145,7 @@ function gen_batch()
         mask2[k][i] = 1
         mask3[{k, i, {}}] = torch.ones(vocab_size)
       else
-        t[k][i] = vocab_size
+        t[k][i] = vocab_size - 1
         mask2[k][i] = 0
         mask3[{k, i, {}}] = torch.zeros(vocab_size)
       end
