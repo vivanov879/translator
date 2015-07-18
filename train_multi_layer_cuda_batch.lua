@@ -281,10 +281,10 @@ end
 optim_state = {learningRate = 1e-2}
 
 
-  if i % 30 == 0 then
+for i = 1, 2000000 do
   local _, loss = optim.adagrad(feval, params, optim_state)
 
-  if true then
+  if i % 30 == 0 then
       print(string.format("iteration %4d, loss = %6.6f", i, loss[1]))
       --print(params)
       sample_sentence = {}
