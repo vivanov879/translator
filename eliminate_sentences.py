@@ -19,7 +19,7 @@ lines2write2 = []
 
 
 def cmp_indexes(x1, x2):
-    return lengths1[x1] < lengths2[x2]
+    return lengths1[x1] < lengths1[x2]
 
 allowed_indexes.sort(cmp=cmp_indexes)
 
