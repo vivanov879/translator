@@ -11,11 +11,11 @@ nngraph.setDebug(true)
 require 'lstm'
 
 opt = {}
-opt.rnn_size = 40
+opt.rnn_size = 30
 opt.n_layers = 2
 rnn_size = opt.rnn_size
 n_layers = opt.n_layers
-batch_size = 10
+batch_size = 4
 
 --train data
 function read_words(fn)
@@ -131,7 +131,7 @@ function gen_batch()
     data_index = 1
 
   end
-  start_index = end_index - data_index
+  start_index = end_index - batch_size
 
   sentences = sentences_ru
   t = torch.zeros(batch_size, max_sentence_len)
