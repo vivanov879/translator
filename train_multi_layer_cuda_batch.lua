@@ -11,11 +11,11 @@ nngraph.setDebug(true)
 require 'lstm'
 
 opt = {}
-opt.rnn_size = 40
+opt.rnn_size = 10
 opt.n_layers = 2
 rnn_size = opt.rnn_size
 n_layers = opt.n_layers
-batch_size = 5
+batch_size = 2
 
 --train data
 function read_words(fn)
@@ -81,7 +81,7 @@ prev_c = nn.Identity()()
 m = make_lstm_network(opt)
 next_x, next_c, next_h = m({x, prev_c, prev_h}):split(3)
 
-encoder = (nn.gModule({x, prev_c, prev_h}, {next_x, next_c, next_h}))
+encoder = (nn.gModule({x, prev_c, prev_h}, {next_x, next_c, next_h})):cuda()
 
 
 --decoder
@@ -95,16 +95,16 @@ next_x, next_c, next_h = m({x, prev_c, prev_h}):split(3)
 prediction = nn.Linear(rnn_size, vocab_size)(next_x)
 prediction = nn.LogSoftMax()(prediction)
 
-decoder = (nn.gModule({x, prev_c, prev_h}, {next_c, next_h, prediction}))
+decoder = (nn.gModule({x, prev_c, prev_h}, {next_c, next_h, prediction})):cuda()
 
 
 --embedding layer fed into encoder
-embed_enc = (Embedding(vocab_size, rnn_size))
+embed_enc = (Embedding(vocab_size, rnn_size)):cuda()
 
 --embedding layer fed into decoder
-embed_dec = (Embedding(vocab_size, rnn_size))
+embed_dec = (Embedding(vocab_size, rnn_size)):cuda()
 
-criterion = (nn.ClassNLLCriterion())
+criterion = (nn.ClassNLLCriterion()):cuda()
 
 -- put the above things into one flattened parameters tensor
 local params, grad_params = model_utils.combine_all_parameters(embed_enc, embed_dec, encoder, decoder)
@@ -179,16 +179,16 @@ function gen_batch()
   mask2_en = mask2:clone()
   mask3_en = mask3:clone()
   
-  return batch_ru, batch_en, mask2_ru, mask2_en, mask3_ru, mask3_en
+  return batch_ru:cuda(), batch_en:cuda(), mask2_ru:cuda(), mask2_en:cuda(), mask3_ru:cuda(), mask3_en:cuda()
 end
 
 function gen_tensor_table(gen_ones)
   local h = {}
   for i = 1, opt.n_layers do 
     if gen_ones then
-      h[#h + 1] = torch.ones(batch_size, rnn_size)
+      h[#h + 1] = torch.ones(batch_size, rnn_size):cuda()
     else  
-      h[#h + 1] = torch.zeros(batch_size, rnn_size)
+      h[#h + 1] = torch.zeros(batch_size, rnn_size):cuda()
     end
   end
   return h
@@ -207,7 +207,7 @@ function feval(x_arg)
     ------------------- forward pass -------------------
     lstm_c_enc = {[0]=lstm_c_enc0}
     lstm_h_enc = {[0]=gen_tensor_table(false)}
-    lstm_x_enc = {[0]=torch.zeros(batch_size, rnn_size)}
+    lstm_x_enc = {[0]=torch.zeros(batch_size, rnn_size):cuda()}
 
     x_enc_embedding = {}
         
@@ -224,7 +224,7 @@ function feval(x_arg)
     x_dec_prediction = {}
     x_dec_embedding = {}
     
-    x_dec = torch.zeros(y_dec:size())
+    x_dec = torch.zeros(y_dec:size()):cuda()
     x_dec[{{}, {1}}] = y_dec[{{}, {y_dec:size(2)}}]
     x_dec[{{}, {2,y_dec:size(2)}}] = y_dec[{{}, {1,y_dec:size(2) - 1}}]
     for t = 1, x_dec:size(2) do 
@@ -258,7 +258,7 @@ function feval(x_arg)
     
     dlstm_c_enc = {[x_enc:size(2) - 1] = gen_tensor_table(false)}
     dlstm_h_enc = {[x_enc:size(2) - 1] = dlstm_h_dec[0]}
-    dlstm_x_enc = {[x_enc:size(2) - 1] = torch.zeros(batch_size, rnn_size)}
+    dlstm_x_enc = {[x_enc:size(2) - 1] = torch.zeros(batch_size, rnn_size):cuda()}
     dx_enc_embedding = {}
     dx_enc = {}
 
