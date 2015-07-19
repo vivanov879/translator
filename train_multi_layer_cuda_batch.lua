@@ -11,11 +11,11 @@ nngraph.setDebug(true)
 require 'lstm'
 
 opt = {}
-opt.rnn_size = 100
+opt.rnn_size = 40
 opt.n_layers = 2
 rnn_size = opt.rnn_size
 n_layers = opt.n_layers
-batch_size = 2
+batch_size = 10
 
 --train data
 function read_words(fn)
@@ -136,8 +136,10 @@ function gen_batch()
   sentences = sentences_ru
   t = torch.zeros(batch_size, max_sentence_len)
   mask = torch.zeros(max_sentence_len, batch_size, batch_size)
+  max_sentence_len_batch = 1
   for k = 1, batch_size do
     sentence = sentences[start_index + k - 1]
+    max_sentence_len_batch = math.max(max_sentence_len_batch, #sentence)
     for i = 1, max_sentence_len do 
       if i <= #sentence then
         t[k][i] = sentence[i]
@@ -149,14 +151,16 @@ function gen_batch()
       
     end
   end
-  batch_ru = t:clone()
-  mask_ru = mask:clone()
+  batch_ru = t[{{}, {1, max_sentence_len_batch}}]:clone()
+  mask_ru = mask[{{1, max_sentence_len_batch},{},{}}]:clone()
   
   sentences = sentences_en
   t = torch.zeros(batch_size, max_sentence_len)
   mask = torch.zeros(max_sentence_len, batch_size, batch_size)
+  max_sentence_len_batch = 1
   for k = 1, batch_size do
     sentence = sentences[start_index + k - 1]
+    max_sentence_len_batch = math.max(max_sentence_len_batch, #sentence)
     for i = 1, max_sentence_len do 
       if i <= #sentence then
         t[k][i] = sentence[i]
@@ -168,8 +172,8 @@ function gen_batch()
       
     end
   end
-  batch_en = t:clone()
-  mask_en = mask:clone()
+  batch_en = t[{{}, {1, max_sentence_len_batch}}]:clone()
+  mask_en = mask[{{1, max_sentence_len_batch},{},{}}]:clone()
   
   return batch_ru:cuda(), batch_en:cuda(), mask_ru:cuda(), mask_en:cuda()
 end
