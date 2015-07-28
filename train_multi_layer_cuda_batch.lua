@@ -15,7 +15,7 @@ opt.rnn_size = 40
 opt.n_layers = 2
 rnn_size = opt.rnn_size
 n_layers = opt.n_layers
-batch_size = 5
+batch_size = 2
 
 --train data
 function read_words(fn)
@@ -135,51 +135,47 @@ function gen_batch()
 
   sentences = sentences_ru
   t = torch.zeros(batch_size, max_sentence_len)
-  mask2 = torch.zeros(batch_size, max_sentence_len)
-  mask3 = torch.zeros(batch_size, max_sentence_len, vocab_size)
+  mask = torch.zeros(max_sentence_len, batch_size, batch_size)
+  max_sentence_len_batch = 1
   for k = 1, batch_size do
     sentence = sentences[start_index + k - 1]
+    max_sentence_len_batch = math.max(max_sentence_len_batch, #sentence)
     for i = 1, max_sentence_len do 
       if i <= #sentence then
         t[k][i] = sentence[i]
-        mask2[k][i] = 1
-        mask3[{k, i, {}}] = torch.ones(vocab_size)
+        mask[i][k][k] = 1
       else
         t[k][i] = vocab_size - 1
-        mask2[k][i] = 0
-        mask3[{k, i, {}}] = torch.zeros(vocab_size)
+        mask[i][k][k] = 0
       end
       
     end
   end
-  batch_ru = t:clone()
-  mask2_ru = mask2:clone()
-  mask3_ru = mask3:clone()
+  batch_ru = t[{{}, {1, max_sentence_len_batch}}]:clone()
+  mask_ru = mask[{{1, max_sentence_len_batch},{},{}}]:clone()
   
   sentences = sentences_en
   t = torch.zeros(batch_size, max_sentence_len)
-  mask2 = torch.zeros(batch_size, max_sentence_len)
-  mask3 = torch.zeros(batch_size, max_sentence_len, vocab_size)
+  mask = torch.zeros(max_sentence_len, batch_size, batch_size)
+  max_sentence_len_batch = 1
   for k = 1, batch_size do
     sentence = sentences[start_index + k - 1]
+    max_sentence_len_batch = math.max(max_sentence_len_batch, #sentence)
     for i = 1, max_sentence_len do 
       if i <= #sentence then
         t[k][i] = sentence[i]
-        mask2[k][i] = 1
-        mask3[{k, i, {}}] = torch.ones(vocab_size)
+        mask[i][k][k] = 1
       else
-        t[k][i] = vocab_size
-        mask2[k][i] = 0
-        mask3[{k, i, {}}] = torch.zeros(vocab_size)
+        t[k][i] = vocab_size - 1
+        mask[i][k][k] = 0
       end
       
     end
   end
-  batch_en = t:clone()
-  mask2_en = mask2:clone()
-  mask3_en = mask3:clone()
+  batch_en = t[{{}, {1, max_sentence_len_batch}}]:clone()
+  mask_en = mask[{{1, max_sentence_len_batch},{},{}}]:clone()
   
-  return batch_ru:cuda(), batch_en:cuda(), mask2_ru:cuda(), mask2_en:cuda(), mask3_ru:cuda(), mask3_en:cuda()
+  return batch_ru:cuda(), batch_en:cuda(), mask_ru:cuda(), mask_en:cuda()
 end
 
 function gen_tensor_table(gen_ones)
@@ -211,7 +207,7 @@ function feval(x_arg)
 
     x_enc_embedding = {}
         
-    x_enc, y_dec, mask2_enc, mask2_dec, mask3_enc, mask3_dec = gen_batch()
+    x_enc, y_dec, mask_enc, mask_dec = gen_batch()
     local loss = 0
     for t = 1, x_enc:size(2) - 1 do
       x_enc_embedding[t] = embed_enc_clones[t]:forward(x_enc[{{}, t}])
@@ -230,7 +226,7 @@ function feval(x_arg)
     for t = 1, x_dec:size(2) do 
       x_dec_embedding[t] = embed_dec_clones[t]:forward(x_dec[{{}, t}])
       lstm_c_dec[t], lstm_h_dec[t], x_dec_prediction[t] = unpack(decoder_clones[t]:forward({x_dec_embedding[t], lstm_c_dec[t-1], lstm_h_dec[t-1]}))
-      x_dec_prediction[t]:cmul(mask3_dec[{{}, t, {}}])
+      x_dec_prediction[t] = torch.mm(mask_dec[t], x_dec_prediction[t])
       loss_x = criterion_clones[t]:forward(x_dec_prediction[t], y_dec[{{}, t}])
       loss = loss + loss_x
       --print(loss_x)
@@ -251,7 +247,7 @@ function feval(x_arg)
     
     for t = x_dec:size(2),1,-1 do
       dx_dec_prediction[t] = criterion_clones[t]:backward(x_dec_prediction[t], y_dec[{{}, t}])
-      dx_dec_prediction[t]:cmul(mask3_dec[{{}, t, {}}])
+      dx_dec_prediction[t] = torch.mm(mask_dec[t], dx_dec_prediction[t])
       dx_dec_embedding[t], dlstm_c_dec[t-1], dlstm_h_dec[t-1] = unpack(decoder_clones[t]:backward({x_dec_embedding[t], lstm_c_dec[t-1], lstm_h_dec[t-1]}, {dlstm_c_dec[t], dlstm_h_dec[t], dx_dec_prediction[t]}))
       dx_dec[t] = embed_dec_clones[t]:backward(x_dec[{{}, t}], dx_dec_embedding[t])
     end
