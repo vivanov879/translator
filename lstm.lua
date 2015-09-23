@@ -20,7 +20,7 @@ function make_lstm_step(opt, x, prev_h, prev_c)
     })
     local next_h           = nn.CMulTable()({out_gate, nn.Tanh()(next_c)})
 
-    return next_c, next_h
+    return next_h, next_c
 end
 
 
