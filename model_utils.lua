@@ -1,5 +1,32 @@
+
+--[[
+In the code, combine_all_parameters just creates a contiguous 1D tensor
+large enough to hold all the parameters, then points all the modules to
+this one 1D tensor. The existing weights and gradients tensors are
+discarded.
+
+Suppose you had 3 modules, M1,M2,M3, where M1 and M2 shared their
+parameters (and gradients), but M3 did not. Calling combine_all_parameters
+on these 3 will produce a 1D tensor with space for the params of M1 and M2
+and M3, with the params for the first two both being references to the same
+place in memory for M1 and M2. The params tensor for M3 will point to the
+latter half of the new 1D tensor. The 1D tensor gets returned as the first
+return value of combine_all_parameters, and the corresponding gradParams
+(constructed at the same time) is returned too.
+
+This gives us a 1D view of the params in a set of modules, similarly to now
+nn.Container modules (e.g. nn.Sequential, among others) perform this
+reallocation. As for torch.pointer, that is used to check if two objects
+are the same object.
+
+Your LSTM code is fine, splitting it up into multiple lines like that
+doesn't change anything. The parameter combining isn't related to the
+inputs/outputs of the modules, just to the parameters/gradParams inside the
+module objects.
+]]--
+
+
 require 'torch'
-require 'cutorch'
 
 local model_utils = {}
 
@@ -157,3 +184,4 @@ function model_utils.clone_many_times(net, T)
 end
 
 return model_utils
+
