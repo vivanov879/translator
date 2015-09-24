@@ -129,10 +129,10 @@ function gen_batch()
   if end_index > n_data then
     end_index = n_data
     data_index = 1
-
   end
   start_index = end_index - batch_size
-
+  data_index = data_index + batch_size
+  
   sentences = sentences_ru
   t = torch.zeros(batch_size, max_sentence_len)
   mask = torch.zeros(max_sentence_len, batch_size, batch_size)
@@ -266,10 +266,6 @@ function feval(x_arg)
       
     -- clip gradient element-wise
     grad_params:clamp(-5, 5)
-    data_index = data_index + 1
-    if data_index > #x_raw_enc then 
-      data_index = 1
-    end
 
     return loss, grad_params
 end
