@@ -6,8 +6,9 @@ o
 en*
 
 filtered_sentences_en*
+filtered_sentences_indexes_en*
 filtered_sentences_ru*
-
+filtered_sentences_indexes_ru*
 
 *.ru
 
